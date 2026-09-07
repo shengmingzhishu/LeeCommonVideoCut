@@ -1,0 +1,57 @@
+# Pre-commit hooks 配置 — Python 后端项目
+# 安装: pip install pre-commit && pre-commit install
+# 文件位置: ai-server/.pre-commit-config.yaml
+
+repos:
+  # 代码格式化
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # 类型检查
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-PyYAML, types-requests]
+        args: [--strict, --ignore-missing-imports]
+
+  # 通用检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key    # 检测密钥泄露
+
+  # 安全扫描
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: [-l, -r, --skip, B101]  # B101: assert 语句
+
+  # 依赖漏洞扫描
+  - repo: https://github.com/audit-ci/audit-ci
+    rev: v7.0.0
+    hooks:
+      - id: audit-ci
+        args: [--moderate]
+
+  # 单元测试（快速子集）
+  - repo: local
+    hooks:
+      - id: pytest-quick
+        name: pytest (quick)
+        entry: pytest tests/unit/ -x -q --tb=short
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [commit]

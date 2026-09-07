@@ -1,0 +1,146 @@
+# GitHub Actions CI — 前端 (ai-web)
+# 文件位置: ai-web/.github/workflows/ci.yml
+
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['ai-web/**']
+  pull_request:
+    branches: [main, develop]
+    paths: ['ai-web/**']
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  # --- 代码质量 ---
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: ESLint
+        run: pnpm lint
+      - name: Prettier check
+        run: pnpm prettier --check src
+      - name: TypeScript check
+        run: pnpm tsc --noEmit
+
+  # --- 单元测试 ---
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Run unit tests
+        run: pnpm test --run --coverage --reporter=verbose
+      - name: Coverage check
+        run: pnpm vitest --coverage --coverage.thresholds.lines=80
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage/
+
+  # --- 安全扫描 ---
+  security:
+    name: Security Scan
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+      - name: Bundle analysis
+        run: pnpm build --analyze
+      - name: Upload bundle report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-bundle-report
+          path: dist/.vite/analysis/
+
+  # --- 构建 ---
+  build:
+    name: Build
+    needs: [quality, unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Bundle size check
+        run: |
+          SIZE=$(du -sk dist/ | cut -f1)
+          if [ $SIZE -gt 51200 ]; then
+            echo "ERROR: Bundle size ${SIZE}KB exceeds 50MB budget"
+            exit 1
+          fi
+          echo "Bundle size: ${SIZE}KB (within budget)"
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+
+  # --- E2E 测试 (仅 PR) ---
+  e2e:
+    name: E2E Tests
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright
+        run: pnpm exec playwright install --with-deps
+      - name: Run E2E tests
+        run: pnpm test:e2e
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-e2e-report
+          path: playwright-report/

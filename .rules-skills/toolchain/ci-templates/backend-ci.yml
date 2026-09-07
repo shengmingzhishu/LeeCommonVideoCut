@@ -1,0 +1,118 @@
+# GitHub Actions CI — 后端 (ai-server)
+# 文件位置: ai-server/.github/workflows/ci.yml
+
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['ai-server/**']
+  pull_request:
+    branches: [main, develop]
+    paths: ['ai-server/**']
+
+env:
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  # --- 代码质量 ---
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install ruff mypy
+      - name: Lint
+        run: ruff check .
+      - name: Format check
+        run: ruff format --check .
+      - name: Type check
+        run: mypy --strict src/
+
+  # --- 单元测试 ---
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[dev]"
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --cov --cov-report=xml --cov-report=html --cov-fail-under=80
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: htmlcov/
+
+  # --- 集成测试 ---
+  integration-test:
+    name: Integration Tests
+    needs: quality
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: eval_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[dev]"
+      - name: Run integration tests
+        run: pytest tests/integration/ -v --tb=short
+        env:
+          DATABASE_URL: mysql://root:test@localhost:3306/eval_test
+
+  # --- 安全扫描 ---
+  security:
+    name: Security Scan
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install pip-audit bandit
+      - name: Dependency audit
+        run: pip-audit --ignore-vuln
+      - name: Bandit security scan
+        run: bandit -r src/ -f json -o bandit-report.json || true
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-security-report
+          path: bandit-report.json
+
+  # --- 构建 ---
+  build:
+    name: Build
+    needs: [unit-test, integration-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ai-server:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -2,3 +2,12 @@ node_modules
 
 AI漫剧剪辑师旧参考项目代码
 
+# 星号 (*) - 匹配任意数量的字符（除了斜杠 /）
+*.log              # 忽略所有 .log 文件
+temp_*             # 忽略 temp_1.txt, temp_2.log 等
+*_backup.sql       # 忽略所有以 _backup.sql 结尾的文件
+
+# 双星号 (**) - 匹配任意层级的目录
+**/node_modules/   # 忽略项目任何层级的 node_modules 目录
+src/**/test/       # 忽略 src 下任意层级的 test 目录
+**/*.tmp           # 忽略所有目录下的 .tmp 文件

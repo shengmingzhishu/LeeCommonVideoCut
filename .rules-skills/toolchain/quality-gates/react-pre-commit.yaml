@@ -1,0 +1,80 @@
+# Pre-commit hooks 配置 — React 前端项目
+# 安装: pnpm add -D husky lint-staged && pnpm exec husky init
+# 文件位置: ai-web/.husky/pre-commit
+
+# package.json 中添加:
+# "scripts": {
+#   "lint": "eslint src --ext .ts,.tsx",
+#   "type-check": "tsc --noEmit",
+#   "test": "vitest run",
+#   "format": "prettier --write src",
+#   "prepare": "husky"
+# },
+# "lint-staged": {
+#   "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
+#   "*.{json,md,yaml}": ["prettier --write"]
+# }
+
+repos:
+  # ESLint + Prettier
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.8.0
+    hooks:
+      - id: eslint
+        args: [--fix]
+        files: \.(ts|tsx)$
+        additional_dependencies:
+          - eslint@9.8.0
+          - typescript@5.5.0
+          - "@typescript-eslint/eslint-plugin"
+          - "@typescript-eslint/parser"
+          - eslint-plugin-react
+          - eslint-plugin-react-hooks
+          - eslint-plugin-jsx-a11y
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-beta.7
+    hooks:
+      - id: prettier
+        args: [--write]
+
+  # 通用检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # TypeScript 类型检查
+  - repo: local
+    hooks:
+      - id: tsc
+        name: TypeScript type-check
+        entry: pnpm tsc --noEmit
+        language: system
+        files: \.(ts|tsx)$
+        pass_filenames: false
+        stages: [commit]
+
+  # 单元测试（快速子集）
+  - repo: local
+    hooks:
+      - id: vitest-quick
+        name: vitest (quick)
+        entry: pnpm test --run --reporter=verbose
+        language: system
+        files: \.(ts|tsx)$
+        pass_filenames: false
+        stages: [commit]
+
+# --- Husky + lint-staged 等效配置 ---
+# .husky/pre-commit 文件内容:
+# #!/usr/bin/env sh
+# . "$(dirname -- "$0")/_/husky.sh"
+# npx lint-staged
+# pnpm tsc --noEmit
