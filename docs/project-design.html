@@ -1,0 +1,3330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lee Common Stock Analysis Web V2 | 项目设计文档</title>
+<style>
+/* ========================================================================
+   CSS 变量 — 浅色阅读风格（文档正文）
+   ======================================================================== */
+:root {
+  --c-text: #1a1a2e;
+  --c-text-light: #6b7280;
+  --c-bg: #ffffff;
+  --c-bg-soft: #f9fafb;
+  --c-border: #e5e7eb;
+
+  /* 金融色 — 中国股市红涨绿跌 */
+  --c-up: #dc2626;
+  --c-down: #16a34a;
+  --c-flat: #d97706;
+
+  /* 原型容器 — 深色金融仪表盘 */
+  --c-proto-bg: #0f172a;
+  --c-proto-card: #1e293b;
+  --c-proto-border: #334155;
+  --c-proto-text: #f1f5f9;
+  --c-proto-text-light: #94a3b8;
+  --c-proto-up: #ef4444;
+  --c-proto-down: #22c55e;
+  --c-proto-accent: #3b82f6;
+  --c-proto-accent-light: #60a5fa;
+
+  /* 间距 — 8px 网格 */
+  --sp-xs: 8px;
+  --sp-sm: 16px;
+  --sp-md: 24px;
+  --sp-lg: 40px;
+  --sp-xl: 64px;
+
+  /* 圆角 */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+
+  /* 过渡 */
+  --transition: all 0.2s ease-out;
+
+  /* 字体 */
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  /* 侧边栏宽度 */
+  --sidebar-w: 240px;
+}
+
+/* ========================================================================
+   暗色模式 — @media (prefers-color-scheme: dark)
+   ======================================================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-text: #f1f5f9;
+    --c-text-light: #94a3b8;
+    --c-bg: #0f172a;
+    --c-bg-soft: #1e293b;
+    --c-border: #334155;
+  }
+}
+
+/* ========================================================================
+   Reset / Base
+   ======================================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.7;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ========================================================================
+   布局 — 侧边栏 + 主内容
+   ======================================================================== */
+.layout {
+  display: flex;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--sidebar-w);
+  height: 100dvh;
+  background: var(--c-bg-soft);
+  border-right: 1px solid var(--c-border);
+  overflow-y: auto;
+  z-index: 100;
+  padding: var(--sp-md) 0;
+  transition: transform 0.3s ease;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
+
+.sidebar-header {
+  padding: 0 var(--sp-md);
+  margin-bottom: var(--sp-md);
+}
+.sidebar-header h2 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-text);
+  line-height: 1.4;
+}
+.sidebar-header p {
+  font-size: 12px;
+  color: var(--c-text-light);
+  margin-top: 4px;
+}
+
+.sidebar-section {
+  margin-bottom: var(--sp-sm);
+}
+.sidebar-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-text-light);
+  padding: 0 var(--sp-md);
+  margin-bottom: 6px;
+}
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px var(--sp-md);
+  font-size: 13px;
+  color: var(--c-text-light);
+  text-decoration: none;
+  transition: var(--transition);
+  border-left: 3px solid transparent;
+}
+.sidebar-link:hover {
+  color: var(--c-text);
+  background: var(--c-bg);
+  border-left-color: var(--c-up);
+}
+.sidebar-link.active {
+  color: var(--c-up);
+  font-weight: 600;
+  background: var(--c-bg);
+  border-left-color: var(--c-up);
+}
+.sidebar-link svg {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.content {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  padding: var(--sp-lg) var(--sp-lg) var(--sp-xl);
+  max-width: calc(960px + var(--sp-lg) * 2);
+  width: 100%;
+}
+
+/* ========================================================================
+   章节通用样式
+   ======================================================================== */
+.section {
+  margin-bottom: var(--sp-xl);
+  scroll-margin-top: var(--sp-md);
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-md);
+  padding-bottom: var(--sp-sm);
+  border-bottom: 2px solid var(--c-border);
+}
+.section-header svg { width: 28px; height: 28px; flex-shrink: 0; color: var(--c-up); }
+.section-header h2 { font-size: 24px; font-weight: 700; }
+.section-header .badge {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--r-sm);
+  background: var(--c-bg-soft);
+  color: var(--c-text-light);
+  border: 1px solid var(--c-border);
+}
+
+.subsection { margin-bottom: var(--sp-lg); }
+.subsection-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--sp-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.subsection-title::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--c-up);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+h4 { font-size: 15px; font-weight: 600; margin: var(--sp-sm) 0 var(--sp-xs); }
+p { margin-bottom: var(--sp-xs); color: var(--c-text); }
+ul, ol { margin-bottom: var(--sp-xs); padding-left: var(--sp-sm); }
+li { margin-bottom: 6px; line-height: 1.7; }
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--c-bg-soft);
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  color: var(--c-up);
+}
+pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--c-bg-soft);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  overflow-x: auto;
+  line-height: 1.6;
+  margin-bottom: var(--sp-sm);
+}
+pre code { background: none; padding: 0; color: inherit; }
+
+/* ========================================================================
+   表格
+   ======================================================================== */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-bottom: var(--sp-sm);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.doc-table th {
+  background: var(--c-bg-soft);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px var(--sp-sm);
+  border-bottom: 1px solid var(--c-border);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.doc-table td {
+  padding: 10px var(--sp-sm);
+  border-bottom: 1px solid var(--c-border);
+  vertical-align: top;
+}
+.doc-table tr:last-child td { border-bottom: none; }
+.doc-table tr:hover td { background: var(--c-bg-soft); }
+
+/* ========================================================================
+   卡片 / 信息块
+   ======================================================================== */
+.info-card {
+  background: var(--c-bg-soft);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm) var(--sp-md);
+  margin-bottom: var(--sp-sm);
+}
+.info-card-title {
+  font-weight: 600;
+  margin-bottom: var(--sp-xs);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.info-card-title svg { width: 18px; height: 18px; }
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: var(--sp-sm);
+}
+.feature-list li {
+  padding-left: 28px;
+  position: relative;
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+.feature-list li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px;
+  width: 16px; height: 16px;
+  background: var(--c-up);
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>") center/contain no-repeat;
+}
+.feature-list li strong { font-weight: 600; }
+
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  vertical-align: middle;
+}
+.tag-up { background: rgba(220,38,38,0.12); color: var(--c-up); }
+.tag-down { background: rgba(22,163,74,0.12); color: var(--c-down); }
+.tag-neutral { background: var(--c-bg-soft); color: var(--c-text-light); border: 1px solid var(--c-border); }
+.tag-accent { background: rgba(59,130,246,0.12); color: #3b82f6; }
+
+/* ========================================================================
+   原型容器 — 深色金融仪表盘风格
+   ======================================================================== */
+.proto-container {
+  background: var(--c-proto-bg);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-md);
+  margin: var(--sp-sm) 0;
+  overflow: hidden;
+  position: relative;
+}
+.proto-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-sm);
+  padding-bottom: var(--sp-xs);
+  border-bottom: 1px solid var(--c-proto-border);
+}
+.proto-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-proto-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.proto-header-title svg { width: 18px; height: 18px; color: var(--c-proto-accent-light); }
+.proto-header-meta {
+  font-size: 12px;
+  color: var(--c-proto-text-light);
+  font-family: var(--font-mono);
+}
+.proto-body { color: var(--c-proto-text); }
+
+/* 通用原型组件 */
+.proto-card {
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  transition: var(--transition);
+  cursor: pointer;
+}
+.proto-card:hover {
+  border-color: var(--c-proto-accent);
+  transform: translateY(-1px);
+}
+.proto-up { color: var(--c-proto-up); }
+.proto-down { color: var(--c-proto-down); }
+.proto-muted { color: var(--c-proto-text-light); }
+.proto-label {
+  font-size: 12px;
+  color: var(--c-proto-text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.proto-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.proto-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+}
+.proto-badge-up { background: rgba(239,68,68,0.15); color: var(--c-proto-up); }
+.proto-badge-down { background: rgba(34,197,94,0.15); color: var(--c-proto-down); }
+.proto-badge-neutral { background: rgba(148,163,184,0.15); color: var(--c-proto-text-light); }
+.proto-badge-accent { background: rgba(59,130,246,0.15); color: var(--c-proto-accent-light); }
+
+/* ========================================================================
+   原型1：股票列表 (.proto-stock-list)
+   ======================================================================== */
+.proto-stock-list .sl-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  margin-bottom: var(--sp-sm);
+}
+.proto-stock-list .sl-search svg { width: 16px; height: 16px; color: var(--c-proto-text-light); }
+.proto-stock-list .sl-search input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--c-proto-text);
+  font-size: 14px;
+  font-family: var(--font-sans);
+}
+.proto-stock-list .sl-search input::placeholder { color: var(--c-proto-text-light); }
+.proto-stock-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.proto-stock-list th {
+  text-align: left;
+  padding: 8px 12px;
+  color: var(--c-proto-text-light);
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1px solid var(--c-proto-border);
+  white-space: nowrap;
+}
+.proto-stock-list td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--c-proto-border);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.proto-stock-list tbody tr {
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+}
+.proto-stock-list tbody tr:hover { background: rgba(59,130,246,0.08); }
+.proto-stock-list tbody tr.selected {
+  background: rgba(239,68,68,0.1);
+  box-shadow: inset 3px 0 0 var(--c-proto-up);
+}
+.proto-stock-list .sl-name { color: var(--c-proto-text); font-family: var(--font-sans); font-weight: 600; }
+.proto-stock-list .sl-code { color: var(--c-proto-text-light); }
+.proto-stock-list .sl-kline-popup {
+  position: absolute;
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-xs);
+  z-index: 50;
+  display: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.proto-stock-list .sl-kline-popup.show { display: block; }
+.proto-stock-list .sl-kline-popup .pkp-title {
+  font-size: 12px;
+  color: var(--c-proto-text-light);
+  margin-bottom: 6px;
+}
+
+/* ========================================================================
+   原型2：估值游标 (.proto-valuation-gauge)
+   ======================================================================== */
+.proto-valuation-gauge { text-align: center; }
+.proto-valuation-gauge .vg-gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+}
+.proto-valuation-gauge .vg-status-label {
+  font-size: 20px;
+  font-weight: 700;
+  padding: 6px 20px;
+  border-radius: var(--r-md);
+}
+.proto-valuation-gauge .vg-price-row {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-md);
+  margin-top: var(--sp-xs);
+}
+.proto-valuation-gauge .vg-price-item { text-align: center; }
+.proto-valuation-gauge .vg-slider-wrap {
+  margin-top: var(--sp-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.proto-valuation-gauge input[type="range"] {
+  -webkit-appearance: none;
+  width: 280px;
+  max-width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--c-proto-border);
+  outline: none;
+}
+.proto-valuation-gauge input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--c-proto-accent);
+  cursor: pointer;
+  border: 2px solid var(--c-proto-text);
+}
+.proto-valuation-gauge input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--c-proto-accent);
+  cursor: pointer;
+  border: 2px solid var(--c-proto-text);
+}
+
+/* ========================================================================
+   原型3：AI预测 (.proto-ai-predict)
+   ======================================================================== */
+.proto-ai-predict .ai-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-sm);
+}
+.proto-ai-predict .ai-card {
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.proto-ai-predict .ai-card:hover { border-color: var(--c-proto-accent); }
+.proto-ai-predict .ai-card.active { border-color: var(--c-proto-accent); box-shadow: 0 0 0 1px var(--c-proto-accent); }
+.proto-ai-predict .ai-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: var(--sp-xs); }
+.proto-ai-predict .ai-card-head svg { width: 20px; height: 20px; color: var(--c-proto-accent-light); }
+.proto-ai-predict .ai-card-name { font-weight: 600; font-size: 14px; }
+.proto-ai-predict .ai-confidence-bar {
+  height: 6px;
+  background: var(--c-proto-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.proto-ai-predict .ai-confidence-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.proto-ai-predict .ai-summary {
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.proto-ai-predict .ai-history-btn {
+  font-size: 13px;
+  color: var(--c-proto-accent-light);
+  background: none;
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.proto-ai-predict .ai-history-btn:hover { border-color: var(--c-proto-accent); }
+.proto-ai-predict .ai-history-panel {
+  margin-top: var(--sp-sm);
+  display: none;
+}
+.proto-ai-predict .ai-history-panel.show { display: block; }
+
+/* ========================================================================
+   原型4：新闻舆情 (.proto-news-alert)
+   ======================================================================== */
+.proto-news-alert .na-filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--sp-sm);
+}
+.proto-news-alert .na-filter-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--c-proto-border);
+  background: var(--c-proto-card);
+  color: var(--c-proto-text-light);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.proto-news-alert .na-filter-btn.active { color: var(--c-proto-text); border-color: var(--c-proto-accent); }
+.proto-news-alert .na-card {
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  margin-bottom: var(--sp-xs);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.proto-news-alert .na-card:hover { border-color: var(--c-proto-accent); }
+.proto-news-alert .na-card.selected { border-color: var(--c-proto-accent); box-shadow: 0 0 0 1px var(--c-proto-accent); }
+.proto-news-alert .na-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.proto-news-alert .na-card-title { font-weight: 600; font-size: 14px; }
+.proto-news-alert .na-impact {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ========================================================================
+   原型5：特殊筛选 (.proto-special-screener)
+   ======================================================================== */
+.proto-special-screener .ss-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-sm);
+}
+.proto-special-screener .ss-card {
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.proto-special-screener .ss-card:hover { border-color: var(--c-proto-accent); transform: translateY(-2px); }
+.proto-special-screener .ss-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.proto-special-screener .ss-card-name { font-weight: 600; font-size: 14px; }
+
+/* ========================================================================
+   原型6：跌幅筛选 (.proto-drop-filter)
+   ======================================================================== */
+.proto-drop-filter .df-controls {
+  display: flex;
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-sm);
+  flex-wrap: wrap;
+}
+.proto-drop-filter .df-control-item { display: flex; flex-direction: column; gap: 6px; }
+.proto-drop-filter .df-control-item label { font-size: 12px; color: var(--c-proto-text-light); }
+.proto-drop-filter input[type="range"] {
+  -webkit-appearance: none;
+  width: 200px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--c-proto-border);
+  outline: none;
+}
+.proto-drop-filter input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--c-proto-accent);
+  cursor: pointer;
+}
+.proto-drop-filter table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.proto-drop-filter th {
+  text-align: left; padding: 8px; color: var(--c-proto-text-light);
+  font-size: 12px; border-bottom: 1px solid var(--c-proto-border); white-space: nowrap;
+}
+.proto-drop-filter td { padding: 8px; border-bottom: 1px solid var(--c-proto-border); font-family: var(--font-mono); }
+.proto-drop-filter .df-empty {
+  text-align: center;
+  padding: var(--sp-md);
+  color: var(--c-proto-text-light);
+  font-size: 14px;
+}
+
+/* ========================================================================
+   原型7：跌停筛选 (.proto-limit-down)
+   ======================================================================== */
+.proto-limit-down .ld-market-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--sp-sm);
+}
+.proto-limit-down .ld-market-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--c-proto-text-light);
+  transition: var(--transition);
+}
+.proto-limit-down .ld-market-option.active {
+  border-color: var(--c-proto-accent);
+  color: var(--c-proto-text);
+  background: rgba(59,130,246,0.08);
+}
+.proto-limit-down table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.proto-limit-down th {
+  text-align: left; padding: 8px; color: var(--c-proto-text-light);
+  font-size: 12px; border-bottom: 1px solid var(--c-proto-border); white-space: nowrap;
+}
+.proto-limit-down td { padding: 8px; border-bottom: 1px solid var(--c-proto-border); font-family: var(--font-mono); }
+
+/* ========================================================================
+   原型8：板块热点 (.proto-plate-ranking)
+   ======================================================================== */
+.proto-plate-ranking .pr-tabs { display: flex; gap: 4px; margin-bottom: var(--sp-sm); flex-wrap: wrap; }
+.proto-plate-ranking .pr-tab {
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-sm);
+  background: var(--c-proto-card);
+  color: var(--c-proto-text-light);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.proto-plate-ranking .pr-tab.active { border-color: var(--c-proto-accent); color: var(--c-proto-text); }
+.proto-plate-ranking .pr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-sm);
+}
+.proto-plate-ranking .pr-card {
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.proto-plate-ranking .pr-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.proto-plate-ranking .pr-card.up::before { background: var(--c-proto-up); }
+.proto-plate-ranking .pr-card.down::before { background: var(--c-proto-down); }
+.proto-plate-ranking .pr-card:hover { border-color: var(--c-proto-accent); }
+.proto-plate-ranking .pr-card.selected { border-color: var(--c-proto-accent); box-shadow: 0 0 0 1px var(--c-proto-accent); }
+.proto-plate-ranking .pr-export-btn {
+  font-size: 13px;
+  padding: 6px 14px;
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-sm);
+  background: var(--c-proto-card);
+  color: var(--c-proto-accent-light);
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.proto-plate-ranking .pr-export-btn:hover { border-color: var(--c-proto-accent); }
+.proto-plate-ranking .pr-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.proto-plate-ranking .pr-export-btn svg { width: 16px; height: 16px; }
+
+/* ========================================================================
+   原型9：基本面评分 (.proto-fundamental)
+   ======================================================================== */
+.proto-fundamental table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.proto-fundamental th {
+  text-align: left; padding: 8px 12px; color: var(--c-proto-text-light);
+  font-size: 12px; border-bottom: 1px solid var(--c-proto-border);
+  cursor: pointer; user-select: none; white-space: nowrap;
+  transition: var(--transition);
+}
+.proto-fundamental th:hover { color: var(--c-proto-accent-light); }
+.proto-fundamental th.sorted { color: var(--c-proto-accent); }
+.proto-fundamental td { padding: 8px 12px; border-bottom: 1px solid var(--c-proto-border); }
+.proto-fundamental .fn-score-bar {
+  height: 6px;
+  background: var(--c-proto-border);
+  border-radius: 3px;
+  overflow: hidden;
+  width: 80px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+.proto-fundamental .fn-score-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* ========================================================================
+   原型10：数据同步 (.proto-data-sync)
+   ======================================================================== */
+.proto-data-sync .ds-buttons { display: flex; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
+.proto-data-sync .ds-sync-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  background: var(--c-proto-card);
+  color: var(--c-proto-text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.proto-data-sync .ds-sync-btn:hover { border-color: var(--c-proto-accent); }
+.proto-data-sync .ds-sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.proto-data-sync .ds-sync-btn svg { width: 18px; height: 18px; color: var(--c-proto-accent-light); }
+.proto-data-sync .ds-sync-btn.running svg { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+.proto-data-sync .ds-log-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 10px var(--sp-sm);
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-sm);
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.proto-data-sync .ds-log-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+}
+.proto-data-sync .ds-log-status.success { background: rgba(34,197,94,0.15); color: var(--c-proto-down); }
+.proto-data-sync .ds-log-status.fail { background: rgba(239,68,68,0.15); color: var(--c-proto-up); }
+.proto-data-sync .ds-log-status.running { background: rgba(59,130,246,0.15); color: var(--c-proto-accent-light); }
+
+/* ========================================================================
+   原型11：捐赠 (.proto-donation)
+   ======================================================================== */
+.proto-donation .dn-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-md);
+  max-width: 480px;
+  margin: 0 auto;
+}
+.proto-donation .dn-card {
+  background: var(--c-proto-card);
+  border: 1px solid var(--c-proto-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+  text-align: center;
+}
+.proto-donation .dn-qr {
+  width: 160px;
+  height: 160px;
+  margin: 0 auto var(--sp-sm);
+  background: var(--c-proto-bg);
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proto-donation .dn-qr svg { width: 100%; height: 100%; padding: 12px; }
+.proto-donation .dn-card-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+
+/* ========================================================================
+   数据模型展示
+   ======================================================================== */
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--sp-sm);
+}
+.model-card {
+  background: var(--c-bg-soft);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+}
+.model-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--sp-xs);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+.model-card-head .num {
+  width: 24px; height: 24px;
+  background: var(--c-up);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.model-card-head h5 { font-size: 14px; font-weight: 600; }
+.model-card .field {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.model-card .field-name {
+  font-family: var(--font-mono);
+  color: var(--c-text);
+  font-weight: 600;
+  min-width: 140px;
+}
+.model-card .field-desc { color: var(--c-text-light); }
+
+/* API 端点展示 */
+.api-group { margin-bottom: var(--sp-md); }
+.api-group-title { font-size: 16px; font-weight: 600; margin-bottom: var(--sp-xs); }
+.api-endpoint {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 8px var(--sp-sm);
+  border-bottom: 1px solid var(--c-border);
+  font-size: 14px;
+}
+.api-method {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  min-width: 48px;
+  text-align: center;
+}
+.api-method.get { background: rgba(34,197,94,0.12); color: var(--c-down); }
+.api-method.post { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.api-method.put { background: rgba(217,119,6,0.12); color: var(--c-flat); }
+.api-method.delete { background: rgba(220,38,38,0.12); color: var(--c-up); }
+.api-path { font-family: var(--font-mono); font-size: 13px; }
+
+/* ========================================================================
+   移动端导航按钮
+   ======================================================================== */
+.mobile-nav-toggle {
+  display: none;
+  position: fixed;
+  top: var(--sp-sm);
+  left: var(--sp-sm);
+  z-index: 200;
+  width: 40px; height: 40px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+.mobile-nav-toggle svg { width: 20px; height: 20px; color: var(--c-text); }
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 99;
+}
+.sidebar-backdrop.show { display: block; }
+
+/* ========================================================================
+   响应式
+   ======================================================================== */
+@media (max-width: 1024px) {
+  .content { padding: var(--sp-md); }
+  .proto-ai-predict .ai-grid { grid-template-columns: repeat(2, 1fr); }
+  .proto-special-screener .ss-grid { grid-template-columns: repeat(2, 1fr); }
+  .proto-plate-ranking .pr-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .content { margin-left: 0; padding: var(--sp-md); padding-top: 60px; }
+  .mobile-nav-toggle { display: flex; }
+  .proto-ai-predict .ai-grid { grid-template-columns: 1fr; }
+  .proto-special-screener .ss-grid { grid-template-columns: 1fr; }
+  .proto-plate-ranking .pr-grid { grid-template-columns: 1fr; }
+  .proto-donation .dn-grid { grid-template-columns: 1fr; }
+  .section-header h2 { font-size: 20px; }
+}
+@media (max-width: 375px) {
+  .content { padding: var(--sp-sm); }
+  .proto-valuation-gauge input[type="range"] { width: 100%; }
+}
+
+/* ========================================================================
+   prefers-reduced-motion
+   ======================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 文档底部 */
+.doc-footer {
+  margin-top: var(--sp-xl);
+  padding-top: var(--sp-md);
+  border-top: 2px solid var(--c-border);
+  text-align: center;
+  color: var(--c-text-light);
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<!-- 移动端导航 -->
+<button class="mobile-nav-toggle" id="navToggle" aria-label="导航">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+</button>
+<div class="sidebar-backdrop" id="navBackdrop"></div>
+
+<div class="layout">
+
+<!-- ======================== 左侧导航 ======================== -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h2>Lee Common Stock<br>Analysis Web V2</h2>
+    <p>股票筛选与板块热点分析系统</p>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">总览</div>
+    <a href="#overview" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      项目概述
+    </a>
+    <a href="#architecture" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke-linejoin="round"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke-linejoin="round"/></svg>
+      系统架构
+    </a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">功能模块</div>
+    <a href="#mod-stocks" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z" stroke-linejoin="round"/></svg>
+      1. 股票列表
+    </a>
+    <a href="#mod-valuation" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10M4.93 10.93l5.66 5.66M19.07 10.93l-5.66 5.66" stroke-linecap="round"/><circle cx="12" cy="20" r="2"/></svg>
+      2. 估值游标
+    </a>
+    <a href="#mod-ai" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/><path d="M9 15c1 1 2 1.5 3 1.5s2-.5 3-1.5" stroke-linecap="round"/></svg>
+      3. AI预测面板
+    </a>
+    <a href="#mod-news" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" stroke-linejoin="round"/><path d="M8 8h8M8 12h8M8 16h5" stroke-linecap="round"/></svg>
+      4. 新闻舆情
+    </a>
+    <a href="#mod-special" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18v6H3zM3 14h18v6H3z" stroke-linejoin="round"/><circle cx="7" cy="7" r="1"/><circle cx="7" cy="17" r="1"/></svg>
+      5. 特殊筛选池
+    </a>
+    <a href="#mod-drop" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4v10M7 14l-4 4M7 14l4 4M7 14h10v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      6. 跌幅筛选器
+    </a>
+    <a href="#mod-limitdown" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 4v10M17 14l-4 4M17 14l4 4M17 14H7v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      7. 跌停筛选器
+    </a>
+    <a href="#mod-plates" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v5c0 5-3.5 8-9 10-5.5-2-9-5-9-10V7z" stroke-linejoin="round"/><path d="M8 12l3 3 5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      8. 板块热点
+    </a>
+    <a href="#mod-fundamental" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg>
+      9. 基本面评分
+    </a>
+    <a href="#mod-sync" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      10. 数据同步
+    </a>
+    <a href="#mod-donation" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5-8-11a5 5 0 0110-2 5 5 0 0110 2c0 6-8 11-8 11z" stroke-linejoin="round"/></svg>
+      11. 捐赠页
+    </a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">技术参考</div>
+    <a href="#data-models" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3" /></svg>
+      数据模型
+    </a>
+    <a href="#api-endpoints" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="12" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/></svg>
+      API 端点
+    </a>
+    <a href="#changelog" class="sidebar-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      变更记录
+    </a>
+  </div>
+</nav>
+
+<!-- ======================== 主内容区 ======================== -->
+<main class="content">
+
+<!-- ================================================================== -->
+<!-- Section: 项目概述                                                   -->
+<!-- ================================================================== -->
+<section class="section" id="overview">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <h2>项目概述</h2>
+    <span class="badge">V2.0.0</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">项目定位</div>
+    <p><strong>Lee Common Stock Analysis Web</strong> 是一套面向 A 股个人投资者的多维度量化筛选 + 板块热点分析 + AI 预测辅助决策系统。系统通过 Tushare 行情数据源获取全市场股票行情、基本面财务数据和板块资金流向，结合多模型 AI 预测引擎（Gemini / DeepSeek / Claude / GPT / Qwen），为用户提供从股票筛选、估值判断、AI 预测、新闻舆情到板块热点跟踪的全链路投资辅助决策能力。</p>
+    <p>V2 版本从 V1 单体原型升级为分层架构的生产级系统：前后端分离（React SPA + Express RESTful API），5 层清晰架构（展示层 / API 网关层 / 业务服务层 / 数据访问层 / 外部服务层），支持 MySQL 持久化与 better-sqlite3 开发双引擎，通过 TanStack Query 实现服务端缓存与自动去重，React Router 7 实现 11 个 Tab 的 URL 路由化，Zustand 管理轻量全局状态，TradingView Lightweight Charts 渲染专业金融图表。</p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">目标用户画像</div>
+    <div class="info-card">
+      <div class="info-card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke-linecap="round"/></svg>
+        核心用户
+      </div>
+      <ul>
+        <li><strong>A 股个人投资者</strong>：有一定交易经验，关注多维度量化指标（PE/PB/ROE/换手率/涨跌幅），需要工具辅助筛选和决策</li>
+        <li><strong>量化爱好者</strong>：关注连跌反弹、跌停反弹、底部横盘等特殊形态策略，需要可调参的筛选器</li>
+        <li><strong>板块轮动跟踪者</strong>：关注板块日/7日/20日/30日排名变化，捕捉资金流向和热点切换</li>
+        <li><strong>AI 辅助决策使用者</strong>：希望参考多模型预测矩阵和回测准确率，而非单一来源的预测</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">V1 到 V2 改造量化目标</div>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>目标维度</th>
+          <th>V1 现状（痛点）</th>
+          <th>V2 目标</th>
+          <th>衡量指标</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>可维护性</strong></td>
+          <td>单体文件 3000+ 行，逻辑耦合，修改一处牵一发动全身</td>
+          <td>5 层分层架构，Controller / Service / Repository 分离，模块化组件</td>
+          <td>单文件小于 300 行；模块间零直接依赖；类型覆盖率大于 90%</td>
+        </tr>
+        <tr>
+          <td><strong>可持久化</strong></td>
+          <td>纯内存运行，刷新即丢失；AI 预测记录和用户参数无法保存</td>
+          <td>MySQL 生产 + sqlite3 开发双引擎；Repository 抽象层屏蔽差异</td>
+          <td>18 个数据模型持久化；用户参数可保存恢复；同步日志可追溯</td>
+        </tr>
+        <tr>
+          <td><strong>用户体验</strong></td>
+          <td>页面切换白屏；无 URL 路由；无缓存；悬停 K 线频繁请求</td>
+          <td>React Router 7 URL 路由；TanStack Query 缓存去重；TradingView 专业图表</td>
+          <td>页面切换小于 100ms；缓存命中率大于 80%；30+ Playwright E2E 用例</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">V2 技术栈全景</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>分类</th><th>V2 技术选型</th><th>选型理由</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>构建工具</td><td>Vite 6 + React 18 + TypeScript 5</td><td>极速 HMR，类型安全，生态成熟</td></tr>
+        <tr><td>CSS 方案</td><td>Tailwind CSS 4 + CSS 变量主题</td><td>原子化样式 + 主题切换灵活</td></tr>
+        <tr><td>路由</td><td>React Router 7（11 Tab 转 11 URL 路径）</td><td>URL 可分享可收藏，浏览器前进后退</td></tr>
+        <tr><td>状态管理</td><td>Zustand 4（轻量全局状态）</td><td>无 Provider 嵌套，API 简洁</td></tr>
+        <tr><td>服务端缓存</td><td>TanStack Query 5（自动去重 + 缓存 + 重试）</td><td>请求自动去重，stale-while-revalidate</td></tr>
+        <tr><td>金融图表</td><td>TradingView Lightweight Charts 4.2</td><td>专业 K 线渲染，性能优于自研 SVG</td></tr>
+        <tr><td>HTTP</td><td>封装 fetch wrapper + 统一错误处理</td><td>统一拦截器，错误码标准化</td></tr>
+        <tr><td>后端框架</td><td>Express 4 + 分层目录（Controller/Service/Repo）</td><td>轻量灵活，中间件生态丰富</td></tr>
+        <tr><td>数据库</td><td>MySQL + better-sqlite3（开发双引擎）</td><td>生产 MySQL，开发 sqlite3 零配置</td></tr>
+        <tr><td>行情数据源</td><td>Tushare SDK（接口抽象 IMktDataProvider）</td><td>A 股专业数据，接口抽象可替换</td></tr>
+        <tr><td>AI 调用</td><td>多模型策略类（Gemini/DeepSeek/RandomMock）</td><td>策略模式，模型可热插拔</td></tr>
+        <tr><td>测试</td><td>Playwright（30+ 用例）</td><td>E2E 端到端覆盖关键流程</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 系统架构                                                    -->
+<!-- ================================================================== -->
+<section class="section" id="architecture">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke-linejoin="round"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke-linejoin="round"/></svg>
+    <h2>系统架构</h2>
+    <span class="badge">5 层分层</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">5 层架构总览</div>
+    <pre><code>+-------------------------------------------------------------+
+|              Presentation Layer（展示层）                     |
+|  pages/ . components/ . hooks/ . stores/                      |
+|  React 18 + TS 5 . Tailwind 4 . Zustand . TanStack Query 5    |
++-------------------------------------------------------------+
+|              API Gateway Layer（API 网关层）                   |
+|  routes/ . middlewares/                                       |
+|  Express 4 . 统一错误处理 . 请求校验 . CORS                    |
++-------------------------------------------------------------+
+|              Business Service Layer（业务服务层）              |
+|  services/ . 纯 TypeScript，与 Express 解耦                   |
+|  StockService . PlateService . AiPredictService . ...         |
++-------------------------------------------------------------+
+|              Data Access Layer（数据访问层）                   |
+|  repositories/ . Repository 抽象 + MySQL / sqlite3            |
+|  StockRepo . KLineRepo . PlateRepo . AiRecordRepo . ...      |
++-------------------------------------------------------------+
+|              External Service Layer（外部服务层）             |
+|  Tushare SDK . AI Strategy . 邮件通知                         |
+|  IMktDataProvider . GeminiStrategy/DeepSeekStrategy/Mock      |
++-------------------------------------------------------------+</code></pre>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">请求生命周期</div>
+    <div class="info-card">
+      <ol>
+        <li><strong>用户操作</strong>：用户在浏览器中点击股票行 / 切换 Tab / 拖动滑块</li>
+        <li><strong>React Router 7</strong>：路由匹配对应页面组件，URL 同步更新（如 <code>/stocks/600519</code>）</li>
+        <li><strong>Zustand Store</strong>：更新全局状态（选中股票 code、当前 Tab、用户参数）</li>
+        <li><strong>TanStack Query 5</strong>：检查缓存 -- 命中则直接返回（stale-while-revalidate），未命中则发起请求；自动去重相同 key 的并发请求</li>
+        <li><strong>API Gateway（Express routes）</strong>：请求经过中间件链 -- CORS 到 请求校验 到 认证 到 路由处理</li>
+        <li><strong>Business Service</strong>：执行业务逻辑（如跌幅计算、估值灯号判定、AI 模型调度），纯 TS 无 Express 依赖</li>
+        <li><strong>Repository</strong>：数据访问层执行 SQL 查询（MySQL 生产 / sqlite3 开发），返回 ORM 映射对象</li>
+        <li><strong>External Service</strong>：如需外部数据，通过 <code>IMktDataProvider</code> 调用 Tushare SDK，或通过策略类调用 AI 模型</li>
+        <li><strong>响应返回</strong>：Service 层组装 DTO 到 Express 序列化 JSON 到 前端 TanStack Query 缓存 到 React 重渲染</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">目录结构（目标形态）</div>
+    <pre><code>LeeCommonStockCusor/
+|-- client/                          # 前端 SPA
+|   |-- src/
+|   |   |-- pages/                   # 11 个路由页面
+|   |   |   |-- StocksPage.tsx
+|   |   |   |-- ValuationGaugePage.tsx
+|   |   |   |-- AiPredictPage.tsx
+|   |   |   |-- NewsAlertsPage.tsx
+|   |   |   |-- SpecialScreenerPage.tsx
+|   |   |   |-- FilterDropPage.tsx
+|   |   |   |-- FilterLimitDownPage.tsx
+|   |   |   |-- PlatesPage.tsx
+|   |   |   |-- FundamentalPage.tsx
+|   |   |   |-- DataSyncPage.tsx
+|   |   |   `-- DonationPage.tsx
+|   |   |-- components/              # 可复用 UI 组件
+|   |   |-- hooks/                   # 自定义 Hooks
+|   |   |-- stores/                  # Zustand stores
+|   |   |-- api/                     # fetch wrapper + TanStack Query keys
+|   |   |-- types/                   # TypeScript 接口定义
+|   |   `-- utils/                   # 工具函数
+|   `-- vite.config.ts
+|-- server/                          # 后端 Express
+|   |-- routes/                     # 路由定义（Controller 层）
+|   |-- middlewares/                # 中间件（错误处理/校验/CORS）
+|   |-- services/                   # 业务逻辑（纯 TS，与 Express 解耦）
+|   |-- repositories/               # 数据访问（Repository 抽象）
+|   |   |-- mysql/                  # MySQL 实现
+|   |   `-- sqlite/                 # sqlite3 实现
+|   |-- external/                   # 外部服务
+|   |   |-- tushare/                # Tushare SDK 封装
+|   |   |-- ai/                     # AI 策略类
+|   |   |   |-- GeminiStrategy.ts
+|   |   |   |-- DeepSeekStrategy.ts
+|   |   |   `-- RandomMockStrategy.ts
+|   |   `-- notify/                 # 邮件通知
+|   |-- types/                      # 后端类型定义
+|   `-- app.ts                      # Express 入口
+|-- tests/                          # Playwright E2E
+|-- docs/                           # 文档
+`-- package.json</code></pre>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块1 - 股票列表                                       -->
+<!-- ================================================================== -->
+<section class="section" id="mod-stocks">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z" stroke-linejoin="round"/></svg>
+    <h2>功能模块 1：股票列表</h2>
+    <span class="badge">stocks</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>股票列表（stocks）</p>
+
+    <h4>核心价值</h4>
+    <p>展示全市场 A 股股票行情，支持悬停查看 K 线、点击选中联动、双击弹出详情。作为系统的核心枢纽模块，用户选中的股票会联动估值游标、AI 预测、新闻舆情等其他模块，实现"选中即联动"的一体化分析体验。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>主表格</strong>：展示代码、名称、行业、最新价、涨跌幅、开盘价、最高价、最低价、成交量、成交额、PE、PB、总市值、是否 ST 等全维度字段，支持列排序与横向滚动</li>
+      <li><strong>悬停 K 线弹窗</strong>：鼠标悬停行时显示最近 20 日微型 K 线 SVG（蜡烛图 + 成交量柱），弹窗位置自动适配视口边界，mouseleave 后消失</li>
+      <li><strong>点击选中</strong>：单击行选中股票，高亮红色左边框，联动 AI 预测面板加载该股多模型预测、估值游标加载该股估值灯号、新闻舆情加载该股相关新闻</li>
+      <li><strong>双击详情弹窗</strong>：双击行打开 StockDetailModal，展示大 K 线（TradingView Lightweight Charts）、基本面指标卡片、风险提示标签</li>
+      <li><strong>板块和 ETF 关联</strong>：每只股票关联其所属板块名称和对应 ETF 代码/名称/收益率，用户可一键跳转至板块热点排行页</li>
+      <li><strong>风险提示</strong>：减持公告、退市风险、高质押率、立案调查等风险标签，按风险等级（高/中/低）颜色区分</li>
+      <li><strong>搜索过滤</strong>：支持按代码或名称模糊搜索，输入关键词回车后过滤匹配股票，清空恢复全部列表</li>
+    </ul>
+
+    <h4>V2 增强</h4>
+    <ul>
+      <li>TanStack Query 缓存悬停 K 线请求（防抖 300ms + 自动去重），同一股票的 K 线数据在 5 分钟内不重复请求</li>
+      <li>URL 反映选中股票状态（<code>/stocks/:code</code>），支持浏览器前进后退和分享链接</li>
+      <li>Zustand store 持久化选中股票 code，页面刷新后自动恢复选中状态</li>
+      <li>TradingView Lightweight Charts 替代自研 SVG K 线，支持缩放、平移、十字光标</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>StockInfo</code> / <code>KLinePoint</code> / <code>StockRisk</code> / <code>StockPlateEtfInfo</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-stock-list">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z" stroke-linejoin="round"/></svg>
+          股票列表原型
+        </div>
+        <div class="proto-header-meta">5 stocks / mock data</div>
+      </div>
+      <div class="proto-body">
+        <div class="sl-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
+          <input type="text" id="slSearch" placeholder="搜索股票代码或名称...">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>代码</th><th>名称</th><th>最新价</th><th>涨跌幅</th><th>成交量(万手)</th>
+            </tr>
+          </thead>
+          <tbody id="slTableBody">
+            <tr data-code="600519" data-name="贵州茅台">
+              <td class="sl-code">600519</td><td class="sl-name">贵州茅台</td>
+              <td>1689.50</td><td class="proto-up">+2.34%</td><td>3.21</td>
+            </tr>
+            <tr data-code="300750" data-name="宁德时代">
+              <td class="sl-code">300750</td><td class="sl-name">宁德时代</td>
+              <td>215.80</td><td class="proto-down">-1.56%</td><td>12.45</td>
+            </tr>
+            <tr data-code="600036" data-name="招商银行">
+              <td class="sl-code">600036</td><td class="sl-name">招商银行</td>
+              <td>38.92</td><td class="proto-up">+0.85%</td><td>8.76</td>
+            </tr>
+            <tr data-code="002594" data-name="比亚迪">
+              <td class="sl-code">002594</td><td class="sl-name">比亚迪</td>
+              <td>268.30</td><td class="proto-up">+3.12%</td><td>15.92</td>
+            </tr>
+            <tr data-code="601318" data-name="中国平安">
+              <td class="sl-code">601318</td><td class="sl-name">中国平安</td>
+              <td>52.16</td><td class="proto-down">-0.43%</td><td>6.33</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="sl-kline-popup" id="slKlinePopup">
+          <div class="pkp-title" id="pkpTitle">近 5 日 K 线</div>
+          <svg id="pkpSvg" width="180" height="80" viewBox="0 0 180 80"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>悬停行</td><td>mouseenter</td><td>显示微型 K 线弹窗（TanStack Query 缓存，防抖 300ms）</td><td>弹窗不超出视口；mouseleave 后消失</td></tr>
+        <tr><td>点击行</td><td>click</td><td>高亮选中（红色左边框），联动 AI 预测 / 估值游标 / 新闻模块</td><td>单选模式，再点其他行切换选中</td></tr>
+        <tr><td>双击行</td><td>dblclick</td><td>打开 StockDetailModal（大 K 线 + 基本面 + 风险提示）</td><td>ESC 或点击遮罩关闭弹窗</td></tr>
+        <tr><td>搜索</td><td>输入关键词 + 回车</td><td>过滤匹配代码或名称的股票</td><td>空输入恢复全部列表</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块2 - 估值游标                                       -->
+<!-- ================================================================== -->
+<section class="section" id="mod-valuation">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10M4.93 10.93l5.66 5.66M19.07 10.93l-5.66 5.66" stroke-linecap="round"/><circle cx="12" cy="20" r="2"/></svg>
+    <h2>功能模块 2：估值游标</h2>
+    <span class="badge">valuation-gauge</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>估值游标仪表盘（valuation-gauge）</p>
+
+    <h4>核心价值</h4>
+    <p>通过股息率 5 级灯号系统，帮助用户直观判断股票当前价格是"极度便宜"还是"高估风险"。以半圆形仪表盘 + 指针的视觉形式，将抽象的估值数据转化为"红黄绿"信号灯，降低投资判断门槛。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>估值卡片网格</strong>：每只股票一张卡片，展示当前价、股息率、5 年均股息率、灯号状态，支持横向滚动浏览多只股票</li>
+      <li><strong>5 级灯号系统</strong>：极度便宜（深绿）到 便宜价（浅绿）到 合理价（黄色）到 昂贵价（橙色）到 高估风控（红色），每级对应不同的股息率区间</li>
+      <li><strong>滑块调参</strong>：用户可拖动滑块调整目标股息率（0-10%），系统实时重算估值灯号并移动仪表盘指针</li>
+      <li><strong>AI 诊股</strong>：调用 Gemini AI 生成智能诊断总结，结合财务数据给出"建议买入/观望/减持"的文字建议</li>
+      <li><strong>估值价格区间</strong>：显示便宜价、合理价、昂贵价三个基准价格，用户可直观看到当前价位于哪个区间</li>
+      <li><strong>距离便宜价百分比</strong>：显示当前价距便宜价的涨幅空间，正值表示还需涨、负值表示已超过便宜价</li>
+    </ul>
+
+    <h4>V2 增强</h4>
+    <ul>
+      <li>用户自定义参数（目标股息率、灯号阈值）持久化到 MySQL，刷新后恢复</li>
+      <li>AI 诊断支持多模型切换（Gemini / DeepSeek / RandomMock），通过策略类调度</li>
+      <li>TanStack Query 缓存 AI 诊断结果，5 分钟内不重复调用</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>StockValuationGaugeInfo</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-valuation-gauge">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10M4.93 10.93l5.66 5.66M19.07 10.93l-5.66 5.66" stroke-linecap="round"/><circle cx="12" cy="20" r="2"/></svg>
+          估值游标仪表盘原型
+        </div>
+        <div class="proto-header-meta">贵州茅台 600519</div>
+      </div>
+      <div class="proto-body vg-gauge-wrap">
+        <svg id="vgGauge" width="300" height="170" viewBox="0 0 300 170"></svg>
+        <div class="vg-status-label" id="vgStatusLabel">便宜价</div>
+        <div class="vg-price-row">
+          <div class="vg-price-item">
+            <div class="proto-label">便宜价</div>
+            <div class="proto-value proto-up" id="vgCheapPrice">1450.00</div>
+          </div>
+          <div class="vg-price-item">
+            <div class="proto-label">合理价</div>
+            <div class="proto-value" id="vgReasonablePrice">1689.50</div>
+          </div>
+          <div class="vg-price-item">
+            <div class="proto-label">昂贵价</div>
+            <div class="proto-value proto-down" id="vgExpensivePrice">2100.00</div>
+          </div>
+        </div>
+        <div class="vg-slider-wrap">
+          <div class="proto-label">目标股息率: <span id="vgSliderVal" class="proto-up" style="font-family:var(--font-mono);font-size:14px;">3.5%</span></div>
+          <input type="range" id="vgSlider" min="0" max="100" value="35" step="1">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>拖动滑块</td><td>drag 滑块</td><td>实时重算灯号状态，仪表盘指针移动，状态标签颜色变化</td><td>值范围 0-10%，边界值锁定</td></tr>
+        <tr><td>点击股票</td><td>click 卡片标题</td><td>跳转到股票列表页并选中该股票</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块3 - AI预测面板                                    -->
+<!-- ================================================================== -->
+<section class="section" id="mod-ai">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/><path d="M9 15c1 1 2 1.5 3 1.5s2-.5 3-1.5" stroke-linecap="round"/></svg>
+    <h2>功能模块 3：AI 预测面板</h2>
+    <span class="badge">ai-predictions</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>AI 预测和胜率榜（ai-predictions）</p>
+
+    <h4>核心价值</h4>
+    <p>多模型矩阵对比 + 5 日推荐回测，辅助投资决策。系统不依赖单一 AI 模型，而是让 5 个模型（Gemini-3.1-Pro / DeepSeek-V3 / Claude-3.5-Sonnet / GPT-4o / Qwen-2.5-Max）对同一股票做出预测，通过横向对比和历史回测准确率，帮助用户识别哪些模型在哪些股票上更可靠。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>多模型矩阵</strong>：5 个 AI 模型对同一股票的预测对比，每模型展示预测方向（看涨/看跌/震荡）、置信度百分比、预测目标价格</li>
+      <li><strong>3 日预测回测</strong>：每模型最近 3 天的预测方向 vs 实际涨跌，标注对错（绿色对勾 / 红色叉号），计算该模型对该股的短期准确率</li>
+      <li><strong>模型准确率</strong>：每模型对该股票的历史准确率 + 胜场/总场数据，帮助用户判断哪个模型在该股上更可靠</li>
+      <li><strong>5 日推荐榜</strong>：最近 5 个交易日的 AI 推荐股票列表 + 推荐后涨跌幅 + 盈亏判断（盈利/亏损），用户可追溯推荐表现</li>
+      <li><strong>股票准确率排行</strong>：按 AI 预测准确率排序的股票列表，找出"AI 最擅长预测的股票"</li>
+      <li><strong>综合建议</strong>：综合多模型投票结果给出买入/观望/减持建议，多数模型看涨则建议买入，多数看跌则建议减持</li>
+    </ul>
+
+    <h4>V2 增强</h4>
+    <ul>
+      <li>AI 预测记录持久化到 MySQL（重启不丢失），可追溯历史预测准确率</li>
+      <li>多模型策略类设计（GeminiStrategy / DeepSeekStrategy / RandomMockStrategy），模型可热插拔</li>
+      <li>TanStack Query 缓存多模型预测结果，10 分钟 stale time</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>StockMultiModelMatrix</code> / <code>AiPredictionRecord</code> / <code>AiDailyRecommendation</code> / <code>AiStockAccuracyInfo</code> / <code>SingleDayModelPrediction</code> / <code>ModelPredictionSummary</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-ai-predict">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/><path d="M9 15c1 1 2 1.5 3 1.5s2-.5 3-1.5" stroke-linecap="round"/></svg>
+          AI 多模型预测矩阵原型
+        </div>
+        <div class="proto-header-meta">贵州茅台 600519</div>
+      </div>
+      <div class="proto-body">
+        <div class="ai-grid">
+          <div class="ai-card active" data-model="tech">
+            <div class="ai-card-head">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 7-7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 8h7v7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="ai-card-name">技术分析模型</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span class="proto-label">预测方向</span>
+              <span class="proto-badge proto-badge-up">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M7 14l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                看涨
+              </span>
+            </div>
+            <div class="ai-confidence-bar"><div class="ai-confidence-fill" style="width:78%;background:var(--c-proto-up);"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">置信度</span><span style="color:var(--c-proto-up);font-weight:600;">78%</span>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:13px;">
+              <span class="proto-muted">预测价</span><span class="proto-value" style="font-size:14px;">1729.00</span>
+            </div>
+          </div>
+          <div class="ai-card" data-model="fundamental">
+            <div class="ai-card-head">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg>
+              <span class="ai-card-name">基本面模型</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span class="proto-label">预测方向</span>
+              <span class="proto-badge proto-badge-up">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M7 14l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                看涨
+              </span>
+            </div>
+            <div class="ai-confidence-bar"><div class="ai-confidence-fill" style="width:65%;background:var(--c-proto-up);"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">置信度</span><span style="color:var(--c-proto-up);font-weight:600;">65%</span>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:13px;">
+              <span class="proto-muted">预测价</span><span class="proto-value" style="font-size:14px;">1710.00</span>
+            </div>
+          </div>
+          <div class="ai-card" data-model="sentiment">
+            <div class="ai-card-head">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke-linecap="round"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+              <span class="ai-card-name">情绪分析模型</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span class="proto-label">预测方向</span>
+              <span class="proto-badge proto-badge-neutral">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14" stroke-linecap="round"/></svg>
+                震荡
+              </span>
+            </div>
+            <div class="ai-confidence-bar"><div class="ai-confidence-fill" style="width:52%;background:var(--c-proto-text-light);"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">置信度</span><span class="proto-muted" style="font-weight:600;">52%</span>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:13px;">
+              <span class="proto-muted">预测价</span><span class="proto-value" style="font-size:14px;">1685.00</span>
+            </div>
+          </div>
+        </div>
+        <div class="ai-summary">
+          <div>
+            <span class="proto-label">综合建议</span>
+            <span class="proto-badge proto-badge-up" style="font-size:14px;padding:4px 12px;margin-left:8px;">买入 (2/3 看涨)</span>
+          </div>
+          <button class="ai-history-btn" id="aiHistoryBtn">查看历史</button>
+        </div>
+        <div class="ai-history-panel" id="aiHistoryPanel">
+          <div style="background:var(--c-proto-card);border:1px solid var(--c-proto-border);border-radius:var(--r-md);padding:var(--sp-sm);">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--c-proto-text-light);">最近 5 日推荐回测</div>
+            <table style="width:100%;font-size:13px;border-collapse:collapse;">
+              <thead>
+                <tr style="color:var(--c-proto-text-light);font-size:12px;">
+                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">日期</th>
+                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">推荐股票</th>
+                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">推荐价</th>
+                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">涨跌幅</th>
+                  <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">结果</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);font-family:var(--font-mono);">08-19</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">比亚迪</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);font-family:var(--font-mono);">260.12</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);color:var(--c-proto-up);">+3.15%</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);color:var(--c-proto-down);">盈利</td></tr>
+                <tr><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);font-family:var(--font-mono);">08-20</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">招商银行</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);font-family:var(--font-mono);">38.50</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);color:var(--c-proto-up);">+1.09%</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);color:var(--c-proto-down);">盈利</td></tr>
+                <tr><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);font-family:var(--font-mono);">08-21</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);">中国平安</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);font-family:var(--font-mono);">52.39</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);color:var(--c-proto-down);">-0.44%</td><td style="padding:6px 8px;border-bottom:1px solid var(--c-proto-border);color:var(--c-proto-up);">亏损</td></tr>
+                <tr><td style="padding:6px 8px;font-family:var(--font-mono);">08-22</td><td style="padding:6px 8px;">贵州茅台</td><td style="padding:6px 8px;font-family:var(--font-mono);">1650.80</td><td style="padding:6px 8px;color:var(--c-proto-up);">+2.34%</td><td style="padding:6px 8px;color:var(--c-proto-down);">盈利</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>切换模型</td><td>click 模型卡片</td><td>高亮选中模型，加载该模型的详细预测数据</td><td>数据异步加载时显示 loading 状态</td></tr>
+        <tr><td>查看历史</td><td>click "查看历史" 按钮</td><td>展开/收起最近 5 日推荐回测面板</td><td>无数据时显示空状态提示</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块4 - 新闻舆情                                       -->
+<!-- ================================================================== -->
+<section class="section" id="mod-news">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" stroke-linejoin="round"/><path d="M8 8h8M8 12h8M8 16h5" stroke-linecap="round"/></svg>
+    <h2>功能模块 4：新闻舆情</h2>
+    <span class="badge">news-alerts</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>新闻和预警利好（news-alerts）</p>
+
+    <h4>核心价值</h4>
+    <p>聚合个股新闻舆情，自动分类利好/利空/中性，评估影响力分数。帮助用户在信息过载的市场中快速识别对持仓或关注股票有重大影响的新闻事件，辅助短期交易决策。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>新闻列表</strong>：个股新闻卡片流，含标题、摘要、影响分析、发布时间，按时间倒序排列</li>
+      <li><strong>三级分类</strong>：利好（BULLISH，红色标签）/ 利空（BEARISH，绿色标签）/ 中性（NEUTRAL，灰色标签），通过 NLP 自动分类</li>
+      <li><strong>影响力评分</strong>：-10 到 +10 的影响力分数，正值表示利好程度，负值表示利空程度，绝对值越大影响越显著</li>
+      <li><strong>关联板块</strong>：每条新闻关联其涉及的板块名称，用户可点击跳转到板块热点排行</li>
+      <li><strong>点击跳转</strong>：点击新闻卡片可跳转到对应股票详情页，查看该股的完整分析</li>
+      <li><strong>分类筛选</strong>：支持按利好/利空/中性分类筛选，快速聚焦某一类信息</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>StockNewsAlert</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-news-alert">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" stroke-linejoin="round"/><path d="M8 8h8M8 12h8M8 16h5" stroke-linecap="round"/></svg>
+          新闻舆情原型
+        </div>
+        <div class="proto-header-meta">3 news items</div>
+      </div>
+      <div class="proto-body">
+        <div class="na-filter-row">
+          <button class="na-filter-btn active" data-filter="all">全部</button>
+          <button class="na-filter-btn" data-filter="bullish">利好</button>
+          <button class="na-filter-btn" data-filter="bearish">利空</button>
+          <button class="na-filter-btn" data-filter="neutral">中性</button>
+        </div>
+        <div class="na-card" data-type="bullish">
+          <div class="na-card-head">
+            <span class="na-card-title">贵州茅台半年报营收同比增长 13.2%</span>
+            <span class="proto-badge proto-badge-up">利好</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span class="proto-muted" style="font-size:12px;">关联板块: 白酒</span>
+            <span class="na-impact proto-up">+8.5</span>
+          </div>
+          <p class="proto-muted" style="font-size:13px;line-height:1.6;">贵州茅台发布 2026 年半年报，实现营收 834.51 亿元，同比增长 13.2%；净利润 416.73 亿元，同比增长 15.1%。业绩超市场预期...</p>
+        </div>
+        <div class="na-card" data-type="bearish">
+          <div class="na-card-head">
+            <span class="na-card-title">宁德时代遭大股东减持 1.2% 股份</span>
+            <span class="proto-badge proto-badge-down">利空</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span class="proto-muted" style="font-size:12px;">关联板块: 新能源</span>
+            <span class="na-impact proto-down">-6.8</span>
+          </div>
+          <p class="proto-muted" style="font-size:13px;line-height:1.6;">宁德时代公告称，持股 5% 以上股东减持公司股份不超过总股本的 1.2%，减持原因系自身资金需求。市场担忧大股东减持信号...</p>
+        </div>
+        <div class="na-card" data-type="neutral">
+          <div class="na-card-head">
+            <span class="na-card-title">招商银行宣布派发中期股息每股 0.88 元</span>
+            <span class="proto-badge proto-badge-neutral">中性</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span class="proto-muted" style="font-size:12px;">关联板块: 银行</span>
+            <span class="na-impact proto-muted">+1.2</span>
+          </div>
+          <p class="proto-muted" style="font-size:13px;line-height:1.6;">招商银行公告 2026 年中期股息分配方案，每股派发现金股息 0.88 元，股息率约 2.26%，与去年持平，符合市场预期...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>点击新闻</td><td>click 卡片</td><td>高亮选中，可点击跳转到关联股票详情</td><td>-</td></tr>
+        <tr><td>筛选分类</td><td>click 标签按钮</td><td>过滤显示对应分类的新闻</td><td>默认显示全部</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块5 - 特殊筛选池                                     -->
+<!-- ================================================================== -->
+<section class="section" id="mod-special">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18v6H3zM3 14h18v6H3z" stroke-linejoin="round"/><circle cx="7" cy="7" r="1"/><circle cx="7" cy="17" r="1"/></svg>
+    <h2>功能模块 5：特殊筛选池</h2>
+    <span class="badge">special-screener</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>企稳选股和 ETF（special-screener）</p>
+
+    <h4>核心价值</h4>
+    <p>多维度特殊条件筛选，发现连跌反弹、高换手、低估值等结构性机会。不同于常规的基本面筛选，本模块专注于"异常形态"捕捉，帮助用户在市场非有效性中寻找超额收益。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>连跌筛选</strong>：筛选连续下跌 5 日或 7 日的股票，捕捉超跌反弹机会，展示连跌天数和累计跌幅</li>
+      <li><strong>高换手筛选</strong>：筛选换手率异常放大（超过 5% 或 10%）的股票，识别资金活跃标的</li>
+      <li><strong>低估值筛选</strong>：筛选 PE 或 PB 处于历史低分位（低于 20% 分位）的股票，寻找价值回归机会</li>
+      <li><strong>板块和 ETF 关联</strong>：每只筛选结果关联其所属板块和 ETF 走势，帮助用户判断板块整体趋势</li>
+      <li><strong>标签系统</strong>：每只筛选结果带原因标签（如"连跌5日"、"换手率8.5%"、"PE历史最低10%"），直观展示入选原因</li>
+      <li><strong>一键跳转</strong>：点击筛选结果可跳转到股票列表页选中该股票，进行深度分析</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>SpecialStockItem</code> / <code>StockPlateEtfInfo</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-special-screener">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18v6H3zM3 14h18v6H3z" stroke-linejoin="round"/><circle cx="7" cy="7" r="1"/><circle cx="7" cy="17" r="1"/></svg>
+          特殊筛选池原型
+        </div>
+        <div class="proto-header-meta">3 results</div>
+      </div>
+      <div class="proto-body">
+        <div class="ss-grid">
+          <div class="ss-card">
+            <div class="ss-card-head">
+              <div>
+                <div class="ss-card-name">恒瑞医药</div>
+                <div class="sl-code" style="font-size:12px;">600276</div>
+              </div>
+              <span class="proto-badge proto-badge-up">连跌反弹</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;">
+              <div><div class="proto-label">现价</div><div class="proto-value" style="font-size:16px;">42.15</div></div>
+              <div style="text-align:right;"><div class="proto-label">涨跌幅</div><div class="proto-up" style="font-size:16px;font-weight:700;font-family:var(--font-mono);">+2.18%</div></div>
+            </div>
+            <div style="margin-top:8px;"><span class="proto-badge proto-badge-neutral">连跌5日</span> <span class="proto-badge proto-badge-neutral">累计-8.3%</span></div>
+          </div>
+          <div class="ss-card">
+            <div class="ss-card-head">
+              <div>
+                <div class="ss-card-name">东方财富</div>
+                <div class="sl-code" style="font-size:12px;">300059</div>
+              </div>
+              <span class="proto-badge proto-badge-accent">高换手</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;">
+              <div><div class="proto-label">现价</div><div class="proto-value" style="font-size:16px;">15.82</div></div>
+              <div style="text-align:right;"><div class="proto-label">涨跌幅</div><div class="proto-up" style="font-size:16px;font-weight:700;font-family:var(--font-mono);">+4.67%</div></div>
+            </div>
+            <div style="margin-top:8px;"><span class="proto-badge proto-badge-neutral">换手率 9.2%</span> <span class="proto-badge proto-badge-neutral">量比 3.5</span></div>
+          </div>
+          <div class="ss-card">
+            <div class="ss-card-head">
+              <div>
+                <div class="ss-card-name">格力电器</div>
+                <div class="sl-code" style="font-size:12px;">000651</div>
+              </div>
+              <span class="proto-badge proto-badge-down">低估值</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;">
+              <div><div class="proto-label">现价</div><div class="proto-value" style="font-size:16px;">38.90</div></div>
+              <div style="text-align:right;"><div class="proto-label">涨跌幅</div><div class="proto-up" style="font-size:16px;font-weight:700;font-family:var(--font-mono);">+0.56%</div></div>
+            </div>
+            <div style="margin-top:8px;"><span class="proto-badge proto-badge-neutral">PE 8.2</span> <span class="proto-badge proto-badge-neutral">PB 1.5</span> <span class="proto-badge proto-badge-neutral">历史最低10%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>点击卡片</td><td>click</td><td>跳转到股票列表页并选中该股票</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块6 - 跌幅筛选器                                     -->
+<!-- ================================================================== -->
+<section class="section" id="mod-drop">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4v10M7 14l-4 4M7 14l4 4M7 14h10v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h2>功能模块 6：跌幅筛选器</h2>
+    <span class="badge">filter-drop</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>跌幅筛选器（filter-drop）</p>
+
+    <h4>核心价值</h4>
+    <p>筛选指定天数内跌幅超过阈值且底部横盘的股票，捕捉超跌反弹机会。通过可调参数（天数 + 跌幅阈值）和底部横盘判断算法，帮助用户在超跌股中识别真正企稳的标的，避免"接飞刀"风险。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>参数调节</strong>：天数滑块（30-120 天，默认 70 天）+ 跌幅阈值滑块（10%-50%，默认 20%），实时更新筛选结果</li>
+      <li><strong>筛选结果表格</strong>：展示代码、名称、行业、最高价、最高日、低位天数、最低价、当前价、相对位置（距最低价涨幅）、最大跌幅、是否底部横盘</li>
+      <li><strong>板块和 ETF 关联</strong>：每只结果关联板块走势，帮助判断是否为板块系统性下跌</li>
+      <li><strong>底部横盘判断</strong>：最近 3 天收盘价均高于最低价，判定为"底部横盘"（绿色标签），否则为"仍在下跌"（红色标签）</li>
+      <li><strong>相对位置可视化</strong>：以进度条显示当前价在最高价和最低价之间的相对位置，直观判断反弹程度</li>
+    </ul>
+
+    <h4>核心算法</h4>
+    <p>遍历指定天数内的日 K 线数据，找到最高价和最低价，计算最大跌幅 = (最高价 - 最低价) / 最高价。若最大跌幅超过阈值，则进一步判断底部横盘：取最近 3 天的收盘价，若均高于最低价则标记为底部横盘。</p>
+
+    <h4>依赖</h4>
+    <p><code>DropFilterResult</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-drop-filter">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4v10M7 14l-4 4M7 14l4 4M7 14h10v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          跌幅筛选器原型
+        </div>
+        <div class="proto-header-meta">params: 70d / 20%</div>
+      </div>
+      <div class="proto-body">
+        <div class="df-controls">
+          <div class="df-control-item">
+            <label>天数: <span id="dfDaysVal" style="color:var(--c-proto-accent-light);font-family:var(--font-mono);">70</span> 天</label>
+            <input type="range" id="dfDaysSlider" min="30" max="120" value="70" step="5">
+          </div>
+          <div class="df-control-item">
+            <label>跌幅阈值: <span id="dfDropVal" style="color:var(--c-proto-accent-light);font-family:var(--font-mono);">20</span>%</label>
+            <input type="range" id="dfDropSlider" min="10" max="50" value="20" step="1">
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>代码</th><th>名称</th><th>最高价</th><th>最低价</th><th>当前价</th><th>最大跌幅</th><th>底部横盘</th>
+            </tr>
+          </thead>
+          <tbody id="dfTableBody">
+            <tr>
+              <td class="sl-code">002230</td><td class="sl-name">科大讯飞</td>
+              <td>52.30</td><td>38.15</td><td>40.22</td>
+              <td class="proto-down">-27.1%</td>
+              <td><span class="proto-badge proto-badge-down">是</span></td>
+            </tr>
+            <tr>
+              <td class="sl-code">600519</td><td class="sl-name">贵州茅台</td>
+              <td>1820.00</td><td>1610.50</td><td>1689.50</td>
+              <td class="proto-down">-11.5%</td>
+              <td><span class="proto-badge proto-badge-up">否</span></td>
+            </tr>
+            <tr>
+              <td class="sl-code">000858</td><td class="sl-name">五粮液</td>
+              <td>168.50</td><td>128.30</td><td>135.60</td>
+              <td class="proto-down">-23.9%</td>
+              <td><span class="proto-badge proto-badge-down">是</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>调整参数</td><td>drag 滑块</td><td>实时更新筛选结果表格</td><td>结果为空时显示"无匹配结果"提示</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块7 - 跌停筛选器                                     -->
+<!-- ================================================================== -->
+<section class="section" id="mod-limitdown">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 4v10M17 14l-4 4M17 14l4 4M17 14H7v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h2>功能模块 7：跌停筛选器</h2>
+    <span class="badge">filter-limit-down</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>跌停筛选器（filter-limit-down）</p>
+
+    <h4>核心价值</h4>
+    <p>筛选指定天数内跌停且连续反弹的股票，捕捉跌停后反弹机会。通过区分主板（-10%）和创业板/科创板（-20%）的不同跌停阈值，精确识别不同市场板块的跌停反弹模式。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>参数调节</strong>：天数滑块（1-10 天，默认 5 天）+ 市场类型选择（主板/创业板/科创板/全部），自动适配跌停阈值</li>
+      <li><strong>双创差异</strong>：创业板和科创板跌停阈值为 -20%，主板为 -10%，系统根据股票代码前缀自动判断市场类型</li>
+      <li><strong>筛选结果表格</strong>：展示代码、名称、行业、当前价、跌停次数、最后跌停日、反弹天数、反弹幅度、今日涨跌幅</li>
+      <li><strong>板块和 ETF 关联</strong>：每只结果关联板块走势，判断是否为板块系统性风险导致的跌停</li>
+      <li><strong>反弹追踪</strong>：从最后跌停日起计算反弹天数和反弹幅度，帮助用户判断反弹力度</li>
+    </ul>
+
+    <h4>核心算法</h4>
+    <p>识别跌停日：当日 pctChange 小于等于跌停阈值（主板 -10% / 创业板科创板 -20%）。统计指定天数内的跌停次数和最后跌停日。从最后跌停日起计算反弹天数（连续收盘价高于跌停日收盘价的天数）和反弹幅度（当前价 / 跌停日收盘价 - 1）。</p>
+
+    <h4>依赖</h4>
+    <p><code>LimitDownFilterResult</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-limit-down">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 4v10M17 14l-4 4M17 14l4 4M17 14H7v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          跌停筛选器原型
+        </div>
+        <div class="proto-header-meta">5d / threshold: -10%</div>
+      </div>
+      <div class="proto-body">
+        <div class="ld-market-row">
+          <div class="ld-market-option active" data-market="main">主板 (-10%)</div>
+          <div class="ld-market-option" data-market="gem">创业板 (-20%)</div>
+          <div class="ld-market-option" data-market="star">科创板 (-20%)</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>代码</th><th>名称</th><th>当前价</th><th>跌停次数</th><th>最后跌停</th><th>反弹天数</th><th>反弹幅度</th><th>今日涨跌</th>
+            </tr>
+          </thead>
+          <tbody id="ldTableBody">
+            <tr>
+              <td class="sl-code">600519</td><td class="sl-name">贵州茅台</td>
+              <td>1689.50</td><td>1</td><td>08-19</td><td>3</td>
+              <td class="proto-up">+5.2%</td><td class="proto-up">+2.34%</td>
+            </tr>
+            <tr>
+              <td class="sl-code">601318</td><td class="sl-name">中国平安</td>
+              <td>52.16</td><td>2</td><td>08-20</td><td>2</td>
+              <td class="proto-up">+3.1%</td><td class="proto-down">-0.43%</td>
+            </tr>
+            <tr>
+              <td class="sl-code">600036</td><td class="sl-name">招商银行</td>
+              <td>38.92</td><td>1</td><td>08-21</td><td>1</td>
+              <td class="proto-up">+1.8%</td><td class="proto-up">+0.85%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>切换市场</td><td>click radio 选择</td><td>更新跌停阈值和筛选结果</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块8 - 板块热点                                       -->
+<!-- ================================================================== -->
+<section class="section" id="mod-plates">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v5c0 5-3.5 8-9 10-5.5-2-9-5-9-10V7z" stroke-linejoin="round"/><path d="M8 12l3 3 5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h2>功能模块 8：板块热点</h2>
+    <span class="badge">plates</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>板块热点排行（plates）</p>
+
+    <h4>核心价值</h4>
+    <p>多维度板块排行，发现热点板块和资金流向。通过日/7日/20日/30日/综合 5 个子维度排行，帮助用户从短期热点到中长期趋势全方位把握板块轮动节奏。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>5 子 Tab</strong>：日排行 / 7日排行 / 20日排行 / 30日排行 / 综合排行，切换不同时间维度的板块排名</li>
+      <li><strong>板块排行表格</strong>：板块名、日涨跌、总成交量、总成交额、上涨家数、下跌家数、上涨比、领涨股、领涨幅、日排名、排名变化</li>
+      <li><strong>7日/30日排名变化</strong>：显示板块排名升降趋势（绿色上升箭头 / 红色下降箭头 + 变化名次）</li>
+      <li><strong>TOP10/TOP50/TOP100 天数</strong>：板块在头部排名停留的天数，衡量板块热度持续性</li>
+      <li><strong>平均排名 + 标准差</strong>：衡量板块排名稳定性，标准差小表示排名波动小、趋势稳定</li>
+      <li><strong>ETF 关联</strong>：板块关联的 ETF 代码、名称、收益率，用户可直接查看对应 ETF 走势</li>
+      <li><strong>CSV 导出</strong>：支持导出当前排行数据为 CSV 文件，方便离线分析</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>PlateDailyInfo</code> / <code>StockPlateEtfInfo</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-plate-ranking">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v5c0 5-3.5 8-9 10-5.5-2-9-5-9-10V7z" stroke-linejoin="round"/><path d="M8 12l3 3 5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          板块热点排行原型
+        </div>
+        <div class="proto-header-meta">6 plates</div>
+      </div>
+      <div class="proto-body">
+        <div class="pr-tabs">
+          <button class="pr-tab active" data-tab="daily">日排行</button>
+          <button class="pr-tab" data-tab="7d">7日排行</button>
+          <button class="pr-tab" data-tab="20d">20日排行</button>
+          <button class="pr-tab" data-tab="30d">30日排行</button>
+          <button class="pr-tab" data-tab="overall">综合排行</button>
+        </div>
+        <div class="pr-grid">
+          <div class="pr-card up" data-plate="bank">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div style="font-weight:600;font-size:14px;">银行</div><div class="proto-muted" style="font-size:12px;">ETF: 512800</div></div>
+              <div class="proto-up" style="font-size:18px;font-weight:700;font-family:var(--font-mono);">+1.85%</div>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">领涨: 招商银行</span><span class="proto-up">+0.85%</span>
+            </div>
+          </div>
+          <div class="pr-card up" data-plate="pharma">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div style="font-weight:600;font-size:14px;">医药</div><div class="proto-muted" style="font-size:12px;">ETF: 512010</div></div>
+              <div class="proto-up" style="font-size:18px;font-weight:700;font-family:var(--font-mono);">+2.15%</div>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">领涨: 恒瑞医药</span><span class="proto-up">+2.18%</span>
+            </div>
+          </div>
+          <div class="pr-card up" data-plate="energy">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div style="font-weight:600;font-size:14px;">新能源</div><div class="proto-muted" style="font-size:12px;">ETF: 516160</div></div>
+              <div class="proto-up" style="font-size:18px;font-weight:700;font-family:var(--font-mono);">+1.32%</div>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">领涨: 比亚迪</span><span class="proto-up">+3.12%</span>
+            </div>
+          </div>
+          <div class="pr-card up" data-plate="semi">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div style="font-weight:600;font-size:14px;">半导体</div><div class="proto-muted" style="font-size:12px;">ETF: 512480</div></div>
+              <div class="proto-up" style="font-size:18px;font-weight:700;font-family:var(--font-mono);">+0.92%</div>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">领涨: 中芯国际</span><span class="proto-up">+1.45%</span>
+            </div>
+          </div>
+          <div class="pr-card down" data-plate="consumer">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div style="font-weight:600;font-size:14px;">消费</div><div class="proto-muted" style="font-size:12px;">ETF: 510150</div></div>
+              <div class="proto-down" style="font-size:18px;font-weight:700;font-family:var(--font-mono);">-0.65%</div>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">领涨: 贵州茅台</span><span class="proto-up">+2.34%</span>
+            </div>
+          </div>
+          <div class="pr-card up" data-plate="tech">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div><div style="font-weight:600;font-size:14px;">科技</div><div class="proto-muted" style="font-size:12px;">ETF: 515000</div></div>
+              <div class="proto-up" style="font-size:18px;font-weight:700;font-family:var(--font-mono);">+1.55%</div>
+            </div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;">
+              <span class="proto-muted">领涨: 科大讯飞</span><span class="proto-up">+1.88%</span>
+            </div>
+          </div>
+        </div>
+        <button class="pr-export-btn" id="prExportBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          导出 CSV
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>切换子Tab</td><td>click Tab</td><td>加载对应周期排行数据</td><td>数据异步加载时显示 loading</td></tr>
+        <tr><td>点击板块</td><td>click 卡片</td><td>高亮选中，展开成分股列表</td><td>再次点击取消选中</td></tr>
+        <tr><td>导出 CSV</td><td>click 导出按钮</td><td>下载当前排行 CSV 文件</td><td>无数据时禁用按钮</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块9 - 基本面评分                                     -->
+<!-- ================================================================== -->
+<section class="section" id="mod-fundamental">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg>
+    <h2>功能模块 9：基本面评分</h2>
+    <span class="badge">fundamental</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>基本面综合评分排行（fundamental）</p>
+
+    <h4>核心价值</h4>
+    <p>多维度基本面评分，量化评估公司质地。将财务指标、行业地位、成长性、盈利能力等维度综合为标准化分数，帮助用户快速筛选优质公司，避免只看单一指标的局限性。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>评分表格</strong>：展示代码、名称、行业、总分、财务分、行业排名分、成长分、盈利分，支持按任意列排序</li>
+      <li><strong>财务指标详情</strong>：点击行展开显示营业收入、营收同比、净利润、净利润同比、ROE、毛利率、资产负债率、经营现金流</li>
+      <li><strong>综合评分排序</strong>：默认按总分降序排列，总分 = 财务分*30% + 行业排名分*20% + 成长分*25% + 盈利分*25%</li>
+      <li><strong>评分可视化</strong>：每列分数以进度条形式可视化，绿色表示高分、黄色表示中等、红色表示低分</li>
+      <li><strong>行业筛选</strong>：支持按行业分类筛选，聚焦特定行业的公司对比</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>FundamentalData</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-fundamental">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg>
+          基本面评分原型
+        </div>
+        <div class="proto-header-meta">3 stocks</div>
+      </div>
+      <div class="proto-body">
+        <table>
+          <thead>
+            <tr>
+              <th data-sort="name">名称</th>
+              <th data-sort="total" class="sorted">总分</th>
+              <th data-sort="financial">财务分</th>
+              <th data-sort="growth">成长分</th>
+              <th data-sort="profit">盈利分</th>
+            </tr>
+          </thead>
+          <tbody id="fnTableBody">
+            <tr data-total="88" data-financial="85" data-growth="92" data-profit="87">
+              <td class="sl-name">贵州茅台</td>
+              <td>88 <span class="fn-score-bar"><span class="fn-score-fill" style="width:88%;background:var(--c-proto-down);"></span></span></td>
+              <td>85 <span class="fn-score-bar"><span class="fn-score-fill" style="width:85%;background:var(--c-proto-down);"></span></span></td>
+              <td>92 <span class="fn-score-bar"><span class="fn-score-fill" style="width:92%;background:var(--c-proto-down);"></span></span></td>
+              <td>87 <span class="fn-score-bar"><span class="fn-score-fill" style="width:87%;background:var(--c-proto-down);"></span></span></td>
+            </tr>
+            <tr data-total="76" data-financial="80" data-growth="68" data-profit="82">
+              <td class="sl-name">招商银行</td>
+              <td>76 <span class="fn-score-bar"><span class="fn-score-fill" style="width:76%;background:#d97706;"></span></span></td>
+              <td>80 <span class="fn-score-bar"><span class="fn-score-fill" style="width:80%;background:var(--c-proto-down);"></span></span></td>
+              <td>68 <span class="fn-score-bar"><span class="fn-score-fill" style="width:68%;background:#d97706;"></span></span></td>
+              <td>82 <span class="fn-score-bar"><span class="fn-score-fill" style="width:82%;background:var(--c-proto-down);"></span></span></td>
+            </tr>
+            <tr data-total="72" data-financial="70" data-growth="78" data-profit="68">
+              <td class="sl-name">中国平安</td>
+              <td>72 <span class="fn-score-bar"><span class="fn-score-fill" style="width:72%;background:#d97706;"></span></span></td>
+              <td>70 <span class="fn-score-bar"><span class="fn-score-fill" style="width:70%;background:#d97706;"></span></span></td>
+              <td>78 <span class="fn-score-bar"><span class="fn-score-fill" style="width:78%;background:var(--c-proto-down);"></span></span></td>
+              <td>68 <span class="fn-score-bar"><span class="fn-score-fill" style="width:68%;background:#d97706;"></span></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>点击表头</td><td>click 列头</td><td>按该列分数排序（升序/降序切换）</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块10 - 数据同步                                      -->
+<!-- ================================================================== -->
+<section class="section" id="mod-sync">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h2>功能模块 10：数据同步</h2>
+    <span class="badge">data-update</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>行情同步与数据更新（data-update）</p>
+
+    <h4>核心价值</h4>
+    <p>管理行情数据同步，支持手动触发和日志查看。作为系统的数据维护入口，确保股票列表、日 K 线、板块数据等行情数据保持最新状态，同时提供同步日志用于审计和排障。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>同步按钮</strong>：手动触发股票列表同步、日 K 线同步、板块数据同步，每个按钮对应一个 Tushare 接口调用</li>
+      <li><strong>同步日志</strong>：记录每次同步的类型、状态（SUCCESS/FAIL/RUNNING）、记录数、耗时（毫秒）、消息详情</li>
+      <li><strong>状态显示</strong>：三态状态标签 -- SUCCESS（绿色）、FAIL（红色）、RUNNING（蓝色脉冲动画），实时反映同步进度</li>
+      <li><strong>定时同步</strong>：V2 新增，支持配置 cron 定时任务（如每日 18:00 收盘后自动同步），无需手动操作</li>
+      <li><strong>同步范围选择</strong>：支持全量同步（拉取全市场数据）和增量同步（仅更新最新交易日数据），增量同步速度更快</li>
+    </ul>
+
+    <h4>V2 增强</h4>
+    <ul>
+      <li>定时同步任务（node-cron 调度），每日收盘后自动同步</li>
+      <li>MySQL 持久化同步日志，可追溯历史同步记录</li>
+      <li>同步失败自动重试 3 次，间隔指数退避</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>DataUpdateLogItem</code></p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-data-sync">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          数据同步原型
+        </div>
+        <div class="proto-header-meta">3 logs</div>
+      </div>
+      <div class="proto-body">
+        <div class="ds-buttons">
+          <button class="ds-sync-btn" id="dsSyncStocks" data-type="stocks">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            同步股票列表
+          </button>
+          <button class="ds-sync-btn" id="dsSyncKline" data-type="kline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 7-7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 8h7v7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            同步日K线
+          </button>
+        </div>
+        <div id="dsLogList">
+          <div class="ds-log-item">
+            <span class="ds-log-status success">SUCCESS</span>
+            <span style="font-weight:600;">股票列表同步</span>
+            <span class="proto-muted" style="font-family:var(--font-mono);">4,852 条</span>
+            <span class="proto-muted" style="font-family:var(--font-mono);">12.3s</span>
+            <span class="proto-muted" style="font-size:12px;">2026-08-22 18:05</span>
+          </div>
+          <div class="ds-log-item">
+            <span class="ds-log-status success">SUCCESS</span>
+            <span style="font-weight:600;">日K线同步</span>
+            <span class="proto-muted" style="font-family:var(--font-mono);">96,240 条</span>
+            <span class="proto-muted" style="font-family:var(--font-mono);">45.8s</span>
+            <span class="proto-muted" style="font-size:12px;">2026-08-22 18:06</span>
+          </div>
+          <div class="ds-log-item">
+            <span class="ds-log-status fail">FAIL</span>
+            <span style="font-weight:600;">板块数据同步</span>
+            <span class="proto-muted" style="font-family:var(--font-mono);">0 条</span>
+            <span class="proto-muted" style="font-family:var(--font-mono);">3.1s</span>
+            <span class="proto-muted" style="font-size:12px;">Tushare API 限流</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>点击同步</td><td>click 按钮</td><td>触发同步，按钮显示 RUNNING 旋转状态，完成后更新日志</td><td>同步中禁用按钮，防止重复触发</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 功能模块11 - 捐赠页                                       -->
+<!-- ================================================================== -->
+<section class="section" id="mod-donation">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5-8-11a5 5 0 0110-2 5 5 0 0110 2c0 6-8 11-8 11z" stroke-linejoin="round"/></svg>
+    <h2>功能模块 11：捐赠页</h2>
+    <span class="badge">donation</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">功能描述</div>
+    <h4>模块名称</h4>
+    <p>捐赠支持（donation）</p>
+
+    <h4>核心价值</h4>
+    <p>静态页面展示捐赠二维码，为开源项目提供维持运营的资金支持渠道。用户可通过微信或支付宝扫码打赏，支持开发者持续维护和更新系统。</p>
+
+    <h4>功能清单</h4>
+    <ul class="feature-list">
+      <li><strong>微信收款码</strong>：展示微信支付收款二维码图片，用户可长按或截图扫码打赏</li>
+      <li><strong>支付宝收款码</strong>：展示支付宝收款二维码图片，用户可长按或截图扫码打赏</li>
+      <li><strong>感谢文案</strong>：简短的感谢文字，说明捐赠用途（服务器费用、数据接口费用、开发时间）</li>
+    </ul>
+
+    <h4>依赖</h4>
+    <p><code>public/img/</code> 下的图片资源（wechat-qr.png / alipay-qr.png）</p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">页面原型</div>
+    <div class="proto-container proto-donation">
+      <div class="proto-header">
+        <div class="proto-header-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5-8-11a5 5 0 0110-2 5 5 0 0110 2c0 6-8 11-8 11z" stroke-linejoin="round"/></svg>
+          捐赠支持原型
+        </div>
+        <div class="proto-header-meta">static</div>
+      </div>
+      <div class="proto-body">
+        <div class="dn-grid">
+          <div class="dn-card">
+            <div class="dn-qr">
+              <svg viewBox="0 0 100 100" fill="none">
+                <rect width="100" height="100" fill="#0f172a"/>
+                <g fill="#334155">
+                  <rect x="10" y="10" width="20" height="20" rx="2"/>
+                  <rect x="14" y="14" width="12" height="12" rx="1" fill="#0f172a"/>
+                  <rect x="70" y="10" width="20" height="20" rx="2"/>
+                  <rect x="74" y="14" width="12" height="12" rx="1" fill="#0f172a"/>
+                  <rect x="10" y="70" width="20" height="20" rx="2"/>
+                  <rect x="14" y="74" width="12" height="12" rx="1" fill="#0f172a"/>
+                  <rect x="35" y="10" width="5" height="5"/>
+                  <rect x="45" y="10" width="5" height="5"/>
+                  <rect x="55" y="15" width="5" height="5"/>
+                  <rect x="35" y="20" width="5" height="5"/>
+                  <rect x="50" y="25" width="5" height="5"/>
+                  <rect x="40" y="35" width="5" height="5"/>
+                  <rect x="50" y="40" width="10" height="10"/>
+                  <rect x="65" y="35" width="5" height="5"/>
+                  <rect x="35" y="50" width="5" height="5"/>
+                  <rect x="45" y="55" width="5" height="5"/>
+                  <rect x="60" y="50" width="5" height="5"/>
+                  <rect x="70" y="55" width="5" height="5"/>
+                  <rect x="80" y="50" width="5" height="5"/>
+                  <rect x="40" y="65" width="5" height="5"/>
+                  <rect x="55" y="70" width="5" height="5"/>
+                  <rect x="65" y="75" width="5" height="5"/>
+                  <rect x="75" y="65" width="5" height="5"/>
+                  <rect x="85" y="75" width="5" height="5"/>
+                  <rect x="40" y="80" width="5" height="5"/>
+                  <rect x="50" y="85" width="5" height="5"/>
+                </g>
+              </svg>
+            </div>
+            <div class="dn-card-title">微信捐赠</div>
+            <p class="proto-muted" style="font-size:13px;">扫一扫，支持开发者</p>
+          </div>
+          <div class="dn-card">
+            <div class="dn-qr">
+              <svg viewBox="0 0 100 100" fill="none">
+                <rect width="100" height="100" fill="#0f172a"/>
+                <g fill="#334155">
+                  <rect x="10" y="10" width="20" height="20" rx="2"/>
+                  <rect x="14" y="14" width="12" height="12" rx="1" fill="#0f172a"/>
+                  <rect x="70" y="10" width="20" height="20" rx="2"/>
+                  <rect x="74" y="14" width="12" height="12" rx="1" fill="#0f172a"/>
+                  <rect x="10" y="70" width="20" height="20" rx="2"/>
+                  <rect x="14" y="74" width="12" height="12" rx="1" fill="#0f172a"/>
+                  <rect x="40" y="15" width="5" height="5"/>
+                  <rect x="50" y="10" width="5" height="5"/>
+                  <rect x="60" y="20" width="5" height="5"/>
+                  <rect x="35" y="25" width="5" height="5"/>
+                  <rect x="45" y="35" width="5" height="5"/>
+                  <rect x="55" y="30" width="5" height="5"/>
+                  <rect x="65" y="40" width="10" height="10"/>
+                  <rect x="35" y="45" width="5" height="5"/>
+                  <rect x="50" y="50" width="5" height="5"/>
+                  <rect x="60" y="55" width="5" height="5"/>
+                  <rect x="75" y="45" width="5" height="5"/>
+                  <rect x="85" y="50" width="5" height="5"/>
+                  <rect x="40" y="60" width="5" height="5"/>
+                  <rect x="55" y="65" width="5" height="5"/>
+                  <rect x="70" y="70" width="5" height="5"/>
+                  <rect x="80" y="65" width="5" height="5"/>
+                  <rect x="45" y="75" width="5" height="5"/>
+                  <rect x="60" y="80" width="5" height="5"/>
+                  <rect x="75" y="85" width="5" height="5"/>
+                </g>
+              </svg>
+            </div>
+            <div class="dn-card-title">支付宝捐赠</div>
+            <p class="proto-muted" style="font-size:13px;">扫一扫，支持开发者</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">交互说明</div>
+    <table class="doc-table">
+      <thead>
+        <tr><th>操作</th><th>触发方式</th><th>系统响应</th><th>边界情况</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>-</td><td>-</td><td>静态展示，无交互</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 数据模型                                                    -->
+<!-- ================================================================== -->
+<section class="section" id="data-models">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3" /></svg>
+    <h2>数据模型</h2>
+    <span class="badge">18 接口</span>
+  </div>
+
+  <p>以下为 V2 系统的 18 个核心 TypeScript 接口定义，涵盖股票行情、筛选结果、板块分析、AI 预测、新闻舆情等全量数据结构。</p>
+
+  <div class="model-grid">
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">1</span><h5>StockInfo</h5></div>
+      <div class="field"><span class="field-name">tsCode</span><span class="field-desc">股票代码</span></div>
+      <div class="field"><span class="field-name">name</span><span class="field-desc">股票名称</span></div>
+      <div class="field"><span class="field-name">industry</span><span class="field-desc">所属行业</span></div>
+      <div class="field"><span class="field-name">market</span><span class="field-desc">市场(主板/创业板/科创板)</span></div>
+      <div class="field"><span class="field-name">closePrice</span><span class="field-desc">最新收盘价</span></div>
+      <div class="field"><span class="field-name">pctChange</span><span class="field-desc">涨跌幅</span></div>
+      <div class="field"><span class="field-name">pe / pb</span><span class="field-desc">市盈率/市净率</span></div>
+      <div class="field"><span class="field-name">marketCap</span><span class="field-desc">总市值</span></div>
+      <div class="field"><span class="field-name">isSt</span><span class="field-desc">是否ST</span></div>
+      <div class="field"><span class="field-name">risks</span><span class="field-desc">风险提示数组</span></div>
+      <div class="field"><span class="field-name">overallScore</span><span class="field-desc">综合评分</span></div>
+      <div class="field"><span class="field-name">plateEtf</span><span class="field-desc">板块ETF信息</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">2</span><h5>StockRisk</h5></div>
+      <div class="field"><span class="field-name">riskType</span><span class="field-desc">风险类型(减持/退市/质押/立案)</span></div>
+      <div class="field"><span class="field-name">riskLevel</span><span class="field-desc">风险等级(高/中/低)</span></div>
+      <div class="field"><span class="field-name">content</span><span class="field-desc">风险描述</span></div>
+      <div class="field"><span class="field-name">noticeDate</span><span class="field-desc">公告日期</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">3</span><h5>KLinePoint</h5></div>
+      <div class="field"><span class="field-name">tradeDate</span><span class="field-desc">交易日期</span></div>
+      <div class="field"><span class="field-name">open / high / low / close</span><span class="field-desc">开高低收</span></div>
+      <div class="field"><span class="field-name">vol</span><span class="field-desc">成交量</span></div>
+      <div class="field"><span class="field-name">ma5 / ma10 / ma20 / ma60</span><span class="field-desc">均线数据</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">4</span><h5>DropFilterResult</h5></div>
+      <div class="field"><span class="field-name">highPrice</span><span class="field-desc">区间最高价</span></div>
+      <div class="field"><span class="field-name">lowPrice</span><span class="field-desc">区间最低价</span></div>
+      <div class="field"><span class="field-name">maxDropPct</span><span class="field-desc">最大跌幅</span></div>
+      <div class="field"><span class="field-name">isBottomConsolidating</span><span class="field-desc">是否底部横盘</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">5</span><h5>LimitDownFilterResult</h5></div>
+      <div class="field"><span class="field-name">limitDownCount</span><span class="field-desc">跌停次数</span></div>
+      <div class="field"><span class="field-name">reboundDays</span><span class="field-desc">反弹天数</span></div>
+      <div class="field"><span class="field-name">reboundPct</span><span class="field-desc">反弹幅度</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">6</span><h5>PlateDailyInfo</h5></div>
+      <div class="field"><span class="field-name">dailyReturn</span><span class="field-desc">日涨跌幅</span></div>
+      <div class="field"><span class="field-name">upRatio</span><span class="field-desc">上涨比</span></div>
+      <div class="field"><span class="field-name">topStockName</span><span class="field-desc">领涨股名称</span></div>
+      <div class="field"><span class="field-name">rankChange7d</span><span class="field-desc">7日排名变化</span></div>
+      <div class="field"><span class="field-name">top10Days</span><span class="field-desc">TOP10停留天数</span></div>
+      <div class="field"><span class="field-name">avgRank</span><span class="field-desc">平均排名</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">7</span><h5>FundamentalData</h5></div>
+      <div class="field"><span class="field-name">overallScore</span><span class="field-desc">综合评分</span></div>
+      <div class="field"><span class="field-name">financialScore</span><span class="field-desc">财务评分</span></div>
+      <div class="field"><span class="field-name">growthScore</span><span class="field-desc">成长评分</span></div>
+      <div class="field"><span class="field-name">roe</span><span class="field-desc">净资产收益率</span></div>
+      <div class="field"><span class="field-name">grossMargin</span><span class="field-desc">毛利率</span></div>
+      <div class="field"><span class="field-name">debtRatio</span><span class="field-desc">资产负债率</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">8</span><h5>StockValuationGaugeInfo</h5></div>
+      <div class="field"><span class="field-name">dividendYield</span><span class="field-desc">当前股息率</span></div>
+      <div class="field"><span class="field-name">statusLight</span><span class="field-desc">灯号状态(5级)</span></div>
+      <div class="field"><span class="field-name">cheapPrice</span><span class="field-desc">便宜价</span></div>
+      <div class="field"><span class="field-name">reasonablePrice</span><span class="field-desc">合理价</span></div>
+      <div class="field"><span class="field-name">expensivePrice</span><span class="field-desc">昂贵价</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">9</span><h5>AiPredictionRecord</h5></div>
+      <div class="field"><span class="field-name">aiModel</span><span class="field-desc">AI模型名称</span></div>
+      <div class="field"><span class="field-name">predictedDirection</span><span class="field-desc">预测方向(涨/跌/震荡)</span></div>
+      <div class="field"><span class="field-name">confidence</span><span class="field-desc">置信度(0-100%)</span></div>
+      <div class="field"><span class="field-name">recommendationLevel</span><span class="field-desc">推荐等级(买入/观望/减持)</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">10</span><h5>AiStockAccuracyInfo</h5></div>
+      <div class="field"><span class="field-name">totalPredictions</span><span class="field-desc">总预测次数</span></div>
+      <div class="field"><span class="field-name">correctPredictions</span><span class="field-desc">正确预测次数</span></div>
+      <div class="field"><span class="field-name">accuracyRate</span><span class="field-desc">准确率</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">11</span><h5>AiDailyRecommendation</h5></div>
+      <div class="field"><span class="field-name">recommendPrice</span><span class="field-desc">推荐时价格</span></div>
+      <div class="field"><span class="field-name">pctChangeSinceRecommend</span><span class="field-desc">推荐后涨跌幅</span></div>
+      <div class="field"><span class="field-name">isSuccessful</span><span class="field-desc">是否盈利</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">12</span><h5>StockMultiModelMatrix</h5></div>
+      <div class="field"><span class="field-name">models</span><span class="field-desc">模型预测数组</span></div>
+      <div class="field"><span class="field-name">bestModelName</span><span class="field-desc">最佳模型名</span></div>
+      <div class="field"><span class="field-name">bestModelAccuracy</span><span class="field-desc">最佳模型准确率</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">13</span><h5>ModelPredictionSummary</h5></div>
+      <div class="field"><span class="field-name">recent3Days</span><span class="field-desc">近3日预测记录</span></div>
+      <div class="field"><span class="field-name">stockAccuracy</span><span class="field-desc">该股准确率</span></div>
+      <div class="field"><span class="field-name">totalWins</span><span class="field-desc">胜场总数</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">14</span><h5>StockNewsAlert</h5></div>
+      <div class="field"><span class="field-name">newsType</span><span class="field-desc">新闻类型(BULLISH/BEARISH/NEUTRAL)</span></div>
+      <div class="field"><span class="field-name">impactAnalysis</span><span class="field-desc">影响分析文本</span></div>
+      <div class="field"><span class="field-name">impactScore</span><span class="field-desc">影响力分数(-10~+10)</span></div>
+      <div class="field"><span class="field-name">relatedPlate</span><span class="field-desc">关联板块</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">15</span><h5>SpecialStockItem</h5></div>
+      <div class="field"><span class="field-name">tag</span><span class="field-desc">筛选标签(连跌/高换手/低估值)</span></div>
+      <div class="field"><span class="field-name">reason</span><span class="field-desc">入选原因</span></div>
+      <div class="field"><span class="field-name">declineDays</span><span class="field-desc">连跌天数</span></div>
+      <div class="field"><span class="field-name">maxDeclinePct</span><span class="field-desc">最大跌幅</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">16</span><h5>DataUpdateLogItem</h5></div>
+      <div class="field"><span class="field-name">updateType</span><span class="field-desc">同步类型(stocks/kline/plates)</span></div>
+      <div class="field"><span class="field-name">updateStatus</span><span class="field-desc">状态(SUCCESS/FAIL/RUNNING)</span></div>
+      <div class="field"><span class="field-name">recordCount</span><span class="field-desc">同步记录数</span></div>
+      <div class="field"><span class="field-name">startTime</span><span class="field-desc">开始时间</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">17</span><h5>StockPlateEtfInfo</h5></div>
+      <div class="field"><span class="field-name">plateName</span><span class="field-desc">板块名称</span></div>
+      <div class="field"><span class="field-name">plateReturn</span><span class="field-desc">板块涨跌幅</span></div>
+      <div class="field"><span class="field-name">etfCode</span><span class="field-desc">ETF代码</span></div>
+      <div class="field"><span class="field-name">etfName</span><span class="field-desc">ETF名称</span></div>
+      <div class="field"><span class="field-name">etfReturn</span><span class="field-desc">ETF涨跌幅</span></div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-card-head"><span class="num">18</span><h5>SingleDayModelPrediction</h5></div>
+      <div class="field"><span class="field-name">predictedDirection</span><span class="field-desc">当日预测方向</span></div>
+      <div class="field"><span class="field-name">isCorrect</span><span class="field-desc">是否预测正确</span></div>
+      <div class="field"><span class="field-name">actualReturn</span><span class="field-desc">实际涨跌幅</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: API 端点                                                    -->
+<!-- ================================================================== -->
+<section class="section" id="api-endpoints">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="12" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/></svg>
+    <h2>API 端点</h2>
+    <span class="badge">27 端点</span>
+  </div>
+
+  <p>以下为 V2 系统 Express 后端的 27 个 RESTful API 端点，按功能分组组织。</p>
+
+  <div class="api-group">
+    <div class="api-group-title">股票相关 (5)</div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/stocks</span><span class="tag-neutral">获取全市场股票列表</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/stocks/:code</span><span class="tag-neutral">获取单只股票详情</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/stocks/:code/kline</span><span class="tag-neutral">获取股票K线数据</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/stocks/:code/risk</span><span class="tag-neutral">获取股票风险提示</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/search?q=</span><span class="tag-neutral">搜索股票</span></div>
+  </div>
+
+  <div class="api-group">
+    <div class="api-group-title">筛选器 (2)</div>
+    <div class="api-endpoint"><span class="api-method post">POST</span><span class="api-path">/api/filter/drop</span><span class="tag-neutral">跌幅筛选（天数+阈值参数）</span></div>
+    <div class="api-endpoint"><span class="api-method post">POST</span><span class="api-path">/api/filter/limit-down</span><span class="tag-neutral">跌停筛选（天数+市场类型）</span></div>
+  </div>
+
+  <div class="api-group">
+    <div class="api-group-title">板块分析 (8)</div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates</span><span class="tag-neutral">获取板块列表</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates/:code</span><span class="tag-neutral">获取板块详情</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates/rank/daily</span><span class="tag-neutral">日排行</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates/rank/7d</span><span class="tag-neutral">7日排行</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates/rank/20d</span><span class="tag-neutral">20日排行</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates/rank/30d</span><span class="tag-neutral">30日排行</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates/rank/overall</span><span class="tag-neutral">综合排行</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/plates/export</span><span class="tag-neutral">导出CSV</span></div>
+  </div>
+
+  <div class="api-group">
+    <div class="api-group-title">基本面 (1)</div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/fundamental</span><span class="tag-neutral">基本面评分列表</span></div>
+  </div>
+
+  <div class="api-group">
+    <div class="api-group-title">数据同步 (3)</div>
+    <div class="api-endpoint"><span class="api-method post">POST</span><span class="api-path">/api/sync/stocks</span><span class="tag-neutral">同步股票列表</span></div>
+    <div class="api-endpoint"><span class="api-method post">POST</span><span class="api-path">/api/sync/kline</span><span class="tag-neutral">同步日K线</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/sync/logs</span><span class="tag-neutral">获取同步日志</span></div>
+  </div>
+
+  <div class="api-group">
+    <div class="api-group-title">AI预测 (4)</div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/ai/predictions/:code</span><span class="tag-neutral">获取多模型预测</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/ai/accuracy</span><span class="tag-neutral">获取准确率排行</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/ai/recommendations</span><span class="tag-neutral">获取日推荐列表</span></div>
+    <div class="api-endpoint"><span class="api-method post">POST</span><span class="api-path">/api/ai/predict</span><span class="tag-neutral">触发AI预测</span></div>
+  </div>
+
+  <div class="api-group">
+    <div class="api-group-title">新闻资讯 (1)</div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/news</span><span class="tag-neutral">获取新闻列表</span></div>
+  </div>
+
+  <div class="api-group">
+    <div class="api-group-title">估值游标 (3)</div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/valuation/:code</span><span class="tag-neutral">获取估值数据</span></div>
+    <div class="api-endpoint"><span class="api-method put">PUT</span><span class="api-path">/api/valuation/:code</span><span class="tag-neutral">更新估值参数</span></div>
+    <div class="api-endpoint"><span class="api-method get">GET</span><span class="api-path">/api/valuation</span><span class="tag-neutral">获取估值列表</span></div>
+  </div>
+</section>
+
+<!-- ================================================================== -->
+<!-- Section: 变更记录                                                    -->
+<!-- ================================================================== -->
+<section class="section" id="changelog">
+  <div class="section-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h2>变更记录</h2>
+    <span class="badge">Changelog</span>
+  </div>
+
+  <table class="doc-table">
+    <thead>
+      <tr><th>日期</th><th>版本</th><th>变更内容</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="font-family:var(--font-mono);white-space:nowrap;">2026-08-23</td>
+        <td><span class="tag tag-up">v2.0.0</span></td>
+        <td>V2 初始设计文档，11 功能模块 + 18 数据模型 + 27 API 端点。从 V1 单体原型升级为 5 层分层架构（展示层 / API 网关层 / 业务服务层 / 数据访问层 / 外部服务层），技术栈升级为 Vite 6 + React 18 + TS 5 + Express 4 + MySQL/sqlite3 双引擎，新增 TanStack Query 服务端缓存、React Router 7 URL 路由、Zustand 状态管理、TradingView Lightweight Charts 专业图表、多模型 AI 策略类。</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="doc-footer">
+  <p>Lee Common Stock Analysis Web V2 | 项目设计文档 | 生成日期: 2026-08-23</p>
+  <p>本文档为 V2 架构设计参考，所有原型均为可交互 HTML+CSS+JS 实现</p>
+</div>
+
+</main>
+</div>
+
+<script>
+/* ======================================================================
+   全局：侧边栏导航 + 滚动联动高亮
+   ====================================================================== */
+(function() {
+  var navToggle = document.getElementById('navToggle');
+  var sidebar = document.getElementById('sidebar');
+  var backdrop = document.getElementById('navBackdrop');
+  var links = document.querySelectorAll('.sidebar-link');
+  var sections = document.querySelectorAll('.section');
+
+  function toggleNav(open) {
+    if (open) { sidebar.classList.add('open'); backdrop.classList.add('show'); }
+    else { sidebar.classList.remove('open'); backdrop.classList.remove('show'); }
+  }
+
+  if (navToggle) {
+    navToggle.addEventListener('click', function() {
+      toggleNav(!sidebar.classList.contains('open'));
+    });
+  }
+  if (backdrop) backdrop.addEventListener('click', function() { toggleNav(false); });
+
+  links.forEach(function(link) {
+    link.addEventListener('click', function() {
+      toggleNav(false);
+    });
+  });
+
+  // 滚动联动高亮
+  function onScroll() {
+    var scrollY = window.scrollY + 120;
+    var current = '';
+    sections.forEach(function(sec) {
+      if (sec.offsetTop <= scrollY) current = sec.id;
+    });
+    links.forEach(function(link) {
+      var href = link.getAttribute('href');
+      if (href && href === '#' + current) link.classList.add('active');
+      else link.classList.remove('active');
+    });
+  }
+  window.addEventListener('scroll', onScroll);
+  onScroll();
+})();
+
+/* ======================================================================
+   原型1：股票列表 (.proto-stock-list)
+   ====================================================================== */
+(function() {
+  var tbody = document.getElementById('slTableBody');
+  var search = document.getElementById('slSearch');
+  var popup = document.getElementById('slKlinePopup');
+  var popupTitle = document.getElementById('pkpTitle');
+  var popupSvg = document.getElementById('pkpSvg');
+  if (!tbody) return;
+
+  // 模拟 K 线数据
+  var klineData = {
+    '600519': [[1660,1675,1655,1689.5],[1670,1695,1665,1680],[1675,1700,1670,1695],[1685,1710,1680,1690],[1689,1705,1675,1689.5]],
+    '300750': [[222,225,215,218],[218,220,210,215],[215,218,208,212],[212,216,205,210],[210,218,208,215.8]],
+    '600036': [[38.5,39.2,38.3,38.8],[38.8,39.0,38.5,38.6],[38.6,39.1,38.4,38.9],[38.9,39.3,38.7,39.0],[39.0,39.5,38.8,38.92]],
+    '002594': [[260,265,258,263],[263,270,261,268],[268,272,265,270],[270,275,267,265],[265,272,263,268.3]],
+    '601318': [[52.8,53.2,52.5,52.6],[52.6,53.0,52.3,52.4],[52.4,52.8,52.1,52.3],[52.3,52.6,51.9,52.1],[52.1,52.5,51.8,52.16]]
+  };
+
+  function drawKline(code) {
+    var data = klineData[code] || klineData['600519'];
+    var svg = '';
+    var w = 30, gap = 6, startX = 10;
+    var maxVal = 0, minVal = Infinity;
+    data.forEach(function(d) { if (d[1] > maxVal) maxVal = d[1]; if (d[2] < minVal) minVal = d[2]; });
+    var range = maxVal - minVal || 1;
+    var chartH = 50, baseY = 10;
+
+    data.forEach(function(d, i) {
+      var x = startX + i * (w + gap);
+      var openY = baseY + (maxVal - d[0]) / range * chartH;
+      var closeY = baseY + (maxVal - d[3]) / range * chartH;
+      var highY = baseY + (maxVal - d[1]) / range * chartH;
+      var lowY = baseY + (maxVal - d[2]) / range * chartH;
+      var isUp = d[3] >= d[0];
+      var color = isUp ? '#ef4444' : '#22c55e';
+      var bodyTop = Math.min(openY, closeY);
+      var bodyH = Math.abs(closeY - openY) || 1;
+      svg += '<line x1="' + (x + w/2) + '" y1="' + highY + '" x2="' + (x + w/2) + '" y2="' + lowY + '" stroke="' + color + '" stroke-width="1"/>';
+      svg += '<rect x="' + x + '" y="' + bodyTop + '" width="' + w + '" height="' + bodyH + '" fill="' + color + '" rx="1"/>';
+    });
+    // 成交量柱
+    data.forEach(function(d, i) {
+      var x = startX + i * (w + gap);
+      var vol = Math.abs(d[3] - d[0]) / d[0] * 100;
+      var volH = Math.min(vol * 20, 15);
+      var isUp = d[3] >= d[0];
+      svg += '<rect x="' + x + '" y="' + (70 - volH) + '" width="' + w + '" height="' + volH + '" fill="' + (isUp ? '#ef444433' : '#22c55e33') + '" rx="1"/>';
+    });
+    popupSvg.innerHTML = svg;
+  }
+
+  // 悬停 K 线弹窗
+  var rows = tbody.querySelectorAll('tr');
+  var hoverTimer = null;
+  rows.forEach(function(row) {
+    row.addEventListener('mouseenter', function(e) {
+      var code = this.getAttribute('data-code');
+      var name = this.getAttribute('data-name');
+      hoverTimer = setTimeout(function() {
+        popupTitle.textContent = name + ' ' + code + ' | 近 5 日 K 线';
+        drawKline(code);
+        var rect = row.getBoundingClientRect();
+        var containerRect = row.closest('.proto-container').getBoundingClientRect();
+        popup.style.left = (rect.left - containerRect.left + rect.width + 8) + 'px';
+        popup.style.top = (rect.top - containerRect.top) + 'px';
+        popup.classList.add('show');
+      }, 300);
+    });
+    row.addEventListener('mouseleave', function() {
+      clearTimeout(hoverTimer);
+      popup.classList.remove('show');
+    });
+    // 点击选中
+    row.addEventListener('click', function() {
+      rows.forEach(function(r) { r.classList.remove('selected'); });
+      this.classList.add('selected');
+    });
+  });
+
+  // 搜索过滤
+  if (search) {
+    search.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        var q = this.value.trim().toLowerCase();
+        rows.forEach(function(row) {
+          var code = row.getAttribute('data-code').toLowerCase();
+          var name = row.getAttribute('data-name').toLowerCase();
+          if (q === '' || code.indexOf(q) !== -1 || name.indexOf(q) !== -1) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      }
+    });
+  }
+})();
+
+/* ======================================================================
+   原型2：估值游标 (.proto-valuation-gauge)
+   ====================================================================== */
+(function() {
+  var gauge = document.getElementById('vgGauge');
+  var slider = document.getElementById('vgSlider');
+  var sliderVal = document.getElementById('vgSliderVal');
+  var statusLabel = document.getElementById('vgStatusLabel');
+  if (!gauge || !slider) return;
+
+  var cx = 150, cy = 140, r = 110;
+  // 5 段弧颜色: 极度便宜->便宜->合理->昂贵->高估
+  var segColors = ['#16a34a', '#4ade80', '#fbbf24', '#fb923c', '#ef4444'];
+  var segRanges = [20, 20, 20, 20, 20]; // 每段 20 度，共 100 度（-50 到 +50）
+
+  function polarToCart(angleDeg) {
+    var rad = (angleDeg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
+  function arcPath(startDeg, endDeg) {
+    var s = polarToCart(startDeg);
+    var e = polarToCart(endDeg);
+    var large = (endDeg - startDeg) > 180 ? 1 : 0;
+    return 'M ' + s.x + ' ' + s.y + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + e.x + ' ' + e.y;
+  }
+
+  function drawGauge() {
+    var startAngle = -90; // 从 -90 度开始（左下）
+    var totalAngle = 180; // 半圆
+    var segAngle = totalAngle / 5;
+    var svg = '';
+
+    // 背景弧
+    svg += '<path d="' + arcPath(180, 360) + '" fill="none" stroke="#1e293b" stroke-width="24" stroke-linecap="round"/>';
+
+    // 5 段彩色弧
+    for (var i = 0; i < 5; i++) {
+      var sA = 180 + i * segAngle;
+      var eA = sA + segAngle;
+      svg += '<path d="' + arcPath(sA, eA) + '" fill="none" stroke="' + segColors[i] + '" stroke-width="20" stroke-linecap="butt" opacity="0.85"/>';
+    }
+
+    // 刻度标签
+    var labels = ['极度便宜', '便宜', '合理', '昂贵', '高估'];
+    for (var j = 0; j < 5; j++) {
+      var la = 180 + j * segAngle + segAngle / 2;
+      var lp = polarToCart(la);
+      svg += '<text x="' + lp.x + '" y="' + lp.y + '" fill="#94a3b8" font-size="10" text-anchor="middle" dominant-baseline="middle">' + labels[j] + '</text>';
+    }
+
+    // 指针
+    var val = parseInt(slider.value);
+    var pct = val / 100; // 0-1
+    var needleAngle = 180 + pct * 180;
+    var np = polarToCart(needleAngle);
+    var innerP = { x: cx + (r - 30) * Math.cos((needleAngle - 90) * Math.PI / 180), y: cy + (r - 30) * Math.sin((needleAngle - 90) * Math.PI / 180) };
+    svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + np.x + '" y2="' + np.y + '" stroke="#60a5fa" stroke-width="3" stroke-linecap="round"/>';
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="8" fill="#3b82f6"/>';
+
+    gauge.innerHTML = svg;
+  }
+
+  function updateStatus() {
+    var val = parseInt(slider.value);
+    var pct = val / 100 * 10; // 0-10%
+    sliderVal.textContent = pct.toFixed(1) + '%';
+
+    var level = Math.floor(val / 20); // 0-4
+    var labels = ['极度便宜', '便宜价', '合理价', '昂贵价', '高估风控'];
+    var colors = ['#16a34a', '#4ade80', '#fbbf24', '#fb923c', '#ef4444'];
+    var bgColors = ['rgba(22,163,74,0.15)', 'rgba(74,222,128,0.15)', 'rgba(251,191,36,0.15)', 'rgba(251,146,60,0.15)', 'rgba(239,68,68,0.15)'];
+
+    if (level > 4) level = 4;
+    statusLabel.textContent = labels[level];
+    statusLabel.style.color = colors[level];
+    statusLabel.style.background = bgColors[level];
+  }
+
+  slider.addEventListener('input', function() {
+    drawGauge();
+    updateStatus();
+  });
+
+  drawGauge();
+  updateStatus();
+})();
+
+/* ======================================================================
+   原型3：AI预测 (.proto-ai-predict)
+   ====================================================================== */
+(function() {
+  var cards = document.querySelectorAll('.proto-ai-predict .ai-card');
+  var historyBtn = document.getElementById('aiHistoryBtn');
+  var historyPanel = document.getElementById('aiHistoryPanel');
+  if (!cards.length) return;
+
+  cards.forEach(function(card) {
+    card.addEventListener('click', function() {
+      cards.forEach(function(c) { c.classList.remove('active'); });
+      this.classList.add('active');
+    });
+  });
+
+  if (historyBtn) {
+    historyBtn.addEventListener('click', function() {
+      if (historyPanel) historyPanel.classList.toggle('show');
+      this.textContent = historyPanel.classList.contains('show') ? '收起历史' : '查看历史';
+    });
+  }
+})();
+
+/* ======================================================================
+   原型4：新闻舆情 (.proto-news-alert)
+   ====================================================================== */
+(function() {
+  var filterBtns = document.querySelectorAll('.proto-news-alert .na-filter-btn');
+  var cards = document.querySelectorAll('.proto-news-alert .na-card');
+  if (!filterBtns.length) return;
+
+  filterBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      filterBtns.forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      var filter = this.getAttribute('data-filter');
+      cards.forEach(function(card) {
+        if (filter === 'all' || card.getAttribute('data-type') === filter) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  cards.forEach(function(card) {
+    card.addEventListener('click', function() {
+      cards.forEach(function(c) { c.classList.remove('selected'); });
+      this.classList.add('selected');
+    });
+  });
+})();
+
+/* ======================================================================
+   原型5：特殊筛选 (.proto-special-screener)
+   ====================================================================== */
+(function() {
+  var cards = document.querySelectorAll('.proto-special-screener .ss-card');
+  cards.forEach(function(card) {
+    card.addEventListener('click', function() {
+      cards.forEach(function(c) { c.style.borderColor = ''; c.style.transform = ''; });
+      this.style.borderColor = 'var(--c-proto-accent)';
+      this.style.transform = 'translateY(-2px)';
+    });
+  });
+})();
+
+/* ======================================================================
+   原型6：跌幅筛选 (.proto-drop-filter)
+   ====================================================================== */
+(function() {
+  var daysSlider = document.getElementById('dfDaysSlider');
+  var dropSlider = document.getElementById('dfDropSlider');
+  var daysVal = document.getElementById('dfDaysVal');
+  var dropVal = document.getElementById('dfDropVal');
+  var tbody = document.getElementById('dfTableBody');
+  if (!daysSlider) return;
+
+  // 模拟数据池
+  var allData = [
+    { code: '002230', name: '科大讯飞', high: 52.30, low: 38.15, cur: 40.22, drop: 27.1, bottom: true },
+    { code: '600519', name: '贵州茅台', high: 1820.00, low: 1610.50, cur: 1689.50, drop: 11.5, bottom: false },
+    { code: '000858', name: '五粮液', high: 168.50, low: 128.30, cur: 135.60, drop: 23.9, bottom: true },
+    { code: '601318', name: '中国平安', high: 58.20, low: 45.10, cur: 52.16, drop: 22.6, bottom: true },
+    { code: '300750', name: '宁德时代', high: 285.00, low: 198.00, cur: 215.80, drop: 30.5, bottom: false }
+  ];
+
+  function updateTable() {
+    var days = parseInt(daysSlider.value);
+    var threshold = parseInt(dropSlider.value);
+    daysVal.textContent = days;
+    dropVal.textContent = threshold;
+
+    var filtered = allData.filter(function(d) { return d.drop >= threshold; });
+    var html = '';
+    if (filtered.length === 0) {
+      html = '<tr><td colspan="7" class="df-empty">无匹配结果（当前阈值 ' + threshold + '%）</td></tr>';
+    } else {
+      filtered.forEach(function(d) {
+        html += '<tr>' +
+          '<td class="sl-code">' + d.code + '</td>' +
+          '<td class="sl-name">' + d.name + '</td>' +
+          '<td>' + d.high.toFixed(2) + '</td>' +
+          '<td>' + d.low.toFixed(2) + '</td>' +
+          '<td>' + d.cur.toFixed(2) + '</td>' +
+          '<td class="proto-down">-' + d.drop + '%</td>' +
+          '<td><span class="proto-badge ' + (d.bottom ? 'proto-badge-down' : 'proto-badge-up') + '">' + (d.bottom ? '是' : '否') + '</span></td>' +
+          '</tr>';
+      });
+    }
+    tbody.innerHTML = html;
+  }
+
+  daysSlider.addEventListener('input', updateTable);
+  dropSlider.addEventListener('input', updateTable);
+})();
+
+/* ======================================================================
+   原型7：跌停筛选 (.proto-limit-down)
+   ====================================================================== */
+(function() {
+  var options = document.querySelectorAll('.proto-limit-down .ld-market-option');
+  var tbody = document.getElementById('ldTableBody');
+  var header = document.querySelector('.proto-limit-down .proto-header-meta');
+  if (!options.length) return;
+
+  var dataByMarket = {
+    main: [
+      { code: '600519', name: '贵州茅台', price: 1689.50, count: 1, lastDate: '08-19', rebDays: 3, rebPct: 5.2, today: '+2.34%' },
+      { code: '601318', name: '中国平安', price: 52.16, count: 2, lastDate: '08-20', rebDays: 2, rebPct: 3.1, today: '-0.43%' },
+      { code: '600036', name: '招商银行', price: 38.92, count: 1, lastDate: '08-21', rebDays: 1, rebPct: 1.8, today: '+0.85%' }
+    ],
+    gem: [
+      { code: '300750', name: '宁德时代', price: 215.80, count: 1, lastDate: '08-18', rebDays: 4, rebPct: 8.5, today: '-1.56%' },
+      { code: '300059', name: '东方财富', price: 15.82, count: 2, lastDate: '08-20', rebDays: 2, rebPct: 6.2, today: '+4.67%' },
+      { code: '300760', name: '迈瑞医疗', price: 285.30, count: 1, lastDate: '08-21', rebDays: 1, rebPct: 3.5, today: '+1.12%' }
+    ],
+    star: [
+      { code: '688981', name: '中芯国际', price: 95.20, count: 1, lastDate: '08-19', rebDays: 3, rebPct: 7.8, today: '+1.45%' },
+      { code: '688256', name: '寒武纪', price: 220.50, count: 2, lastDate: '08-20', rebDays: 2, rebPct: 12.3, today: '+3.20%' },
+      { code: '688041', name: '华孚科技', price: 68.30, count: 1, lastDate: '08-21', rebDays: 1, rebPct: 4.2, today: '+0.88%' }
+    ]
+  };
+
+  var thresholds = { main: '-10%', gem: '-20%', star: '-20%' };
+
+  function updateTable(market) {
+    var data = dataByMarket[market] || [];
+    var html = '';
+    data.forEach(function(d) {
+      var isUp = d.today.indexOf('+') === 0;
+      var rebIsUp = d.rebPct > 0;
+      html += '<tr>' +
+        '<td class="sl-code">' + d.code + '</td>' +
+        '<td class="sl-name">' + d.name + '</td>' +
+        '<td>' + d.price.toFixed(2) + '</td>' +
+        '<td>' + d.count + '</td>' +
+        '<td>' + d.lastDate + '</td>' +
+        '<td>' + d.rebDays + '</td>' +
+        '<td class="' + (rebIsUp ? 'proto-up' : 'proto-down') + '">' + (rebIsUp ? '+' : '') + d.rebPct + '%</td>' +
+        '<td class="' + (isUp ? 'proto-up' : 'proto-down') + '">' + d.today + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+    if (header) header.textContent = '5d / threshold: ' + thresholds[market];
+  }
+
+  options.forEach(function(opt) {
+    opt.addEventListener('click', function() {
+      options.forEach(function(o) { o.classList.remove('active'); });
+      this.classList.add('active');
+      updateTable(this.getAttribute('data-market'));
+    });
+  });
+})();
+
+/* ======================================================================
+   原型8：板块热点 (.proto-plate-ranking)
+   ====================================================================== */
+(function() {
+  var tabs = document.querySelectorAll('.proto-plate-ranking .pr-tab');
+  var cards = document.querySelectorAll('.proto-plate-ranking .pr-card');
+  var exportBtn = document.getElementById('prExportBtn');
+  if (!tabs.length) return;
+
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      this.classList.add('active');
+    });
+  });
+
+  cards.forEach(function(card) {
+    card.addEventListener('click', function() {
+      var wasSelected = this.classList.contains('selected');
+      cards.forEach(function(c) { c.classList.remove('selected'); });
+      if (!wasSelected) this.classList.add('selected');
+    });
+  });
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', function() {
+      this.textContent = '导出中...';
+      this.disabled = true;
+      var self = this;
+      setTimeout(function() {
+        self.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/></svg> 导出 CSV';
+        self.disabled = false;
+      }, 1500);
+    });
+  }
+})();
+
+/* ======================================================================
+   原型9：基本面评分 (.proto-fundamental)
+   ====================================================================== */
+(function() {
+  var ths = document.querySelectorAll('.proto-fundamental th[data-sort]');
+  var tbody = document.getElementById('fnTableBody');
+  if (!ths.length || !tbody) return;
+
+  var sortDir = {};
+
+  ths.forEach(function(th) {
+    th.addEventListener('click', function() {
+      var key = this.getAttribute('data-sort');
+      sortDir[key] = !sortDir[key];
+
+      ths.forEach(function(t) { t.classList.remove('sorted'); });
+      this.classList.add('sorted');
+
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort(function(a, b) {
+        var av, bv;
+        if (key === 'name') {
+          av = a.querySelector('.sl-name').textContent;
+          bv = b.querySelector('.sl-name').textContent;
+          return sortDir[key] ? av.localeCompare(bv) : bv.localeCompare(av);
+        } else {
+          av = parseInt(a.getAttribute('data-' + key));
+          bv = parseInt(b.getAttribute('data-' + key));
+          return sortDir[key] ? av - bv : bv - av;
+        }
+      });
+      rows.forEach(function(row) { tbody.appendChild(row); });
+    });
+  });
+})();
+
+/* ======================================================================
+   原型10：数据同步 (.proto-data-sync)
+   ====================================================================== */
+(function() {
+  var btns = document.querySelectorAll('.proto-data-sync .ds-sync-btn');
+  var logList = document.getElementById('dsLogList');
+  if (!btns.length) return;
+
+  btns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (this.disabled) return;
+      var type = this.getAttribute('data-type');
+      var typeName = type === 'stocks' ? '股票列表同步' : '日K线同步';
+      var recordCount = type === 'stocks' ? '4,852 条' : '96,240 条';
+      var duration = type === 'stocks' ? '12.3s' : '45.8s';
+      var self = this;
+
+      // RUNNING 状态
+      self.classList.add('running');
+      self.disabled = true;
+      var now = new Date();
+      var timeStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+
+      var runningItem = document.createElement('div');
+      runningItem.className = 'ds-log-item';
+      runningItem.innerHTML = '<span class="ds-log-status running">RUNNING</span><span style="font-weight:600;">' + typeName + '</span><span class="proto-muted">同步中...</span><span class="proto-muted"></span><span class="proto-muted" style="font-size:12px;">' + timeStr + '</span>';
+      logList.insertBefore(runningItem, logList.firstChild);
+
+      // 模拟同步完成
+      setTimeout(function() {
+        runningItem.innerHTML = '<span class="ds-log-status success">SUCCESS</span><span style="font-weight:600;">' + typeName + '</span><span class="proto-muted" style="font-family:var(--font-mono);">' + recordCount + '</span><span class="proto-muted" style="font-family:var(--font-mono);">' + duration + '</span><span class="proto-muted" style="font-size:12px;">' + timeStr + '</span>';
+        self.classList.remove('running');
+        self.disabled = false;
+      }, 2000);
+    });
+  });
+})();
+
+/* ======================================================================
+   原型5补充：特殊筛选卡片选中
+   ====================================================================== */
+(function() {
+  var cards = document.querySelectorAll('.proto-special-screener .ss-card');
+  cards.forEach(function(card) {
+    card.addEventListener('click', function() {
+      cards.forEach(function(c) {
+        c.style.borderColor = 'var(--c-proto-border)';
+        c.style.transform = '';
+      });
+      this.style.borderColor = 'var(--c-proto-accent)';
+      this.style.transform = 'translateY(-2px)';
+    });
+  });
+})();
+</script>
+</body>
+</html>

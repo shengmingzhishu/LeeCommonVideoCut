@@ -1,0 +1,296 @@
+from enum import Enum
+from openai import AsyncOpenAI, Omit
+from typing import AsyncIterator
+import asyncio
+import json
+from datetime import datetime
+from mcp import ClientSession
+from mcp.types import Tool
+from mcp.client.streamable_http import streamable_http_client
+from mcp.client.sse import sse_client
+from {{ project_name }}.utils.env import MCPSERVER_URL, MODEL_LLM_MODEL, MODEL_LLM_KEY, MODEL_LLM_URL, MODEL_LLM_TEMPERATURE,MODEL_LLM_MAXTOKENS
+from {{ project_name }}.utils.logs import LOGGER
+
+class OpenAIResultType(Enum):
+    THINK = 1
+    CONTENT = 2
+    RESULT = 3  # CONTENT 拼装完成后的结果
+    EXCEPTION = 4
+    SET = 5  # 记录多个 RESULT 结果的集合, data 是 RESULT 列表，通常由 gather 任务使用
+
+class OpenAIResult:
+    type: OpenAIResultType = OpenAIResultType.CONTENT
+    data: any = None
+
+    def __init__(self, type: OpenAIResultType, data: any):
+        self.type = type
+        self.data = data
+
+class CsljcAsyncChatOpenAI(AsyncOpenAI):
+    _config: dict = None
+    _client: AsyncOpenAI = None
+    #_mcp_servers: dict[str, any] = dict()  # tool_server -> mcp_server_instance
+    #_server_sessioncontexts: dict[str, ClientSession] = dict()  #  tool_server，mcpsession
+    #_server_sessions: dict[str, ClientSession] = dict()  #  tool_server，mcpsession
+
+    def __init__(self, config: dict = None):
+        '''
+        config的样式：  
+        {
+            'url': PICKFIELD_MODEL_LLM_URL,
+            'key': PICKFIELD_MODEL_LLM_KEY,
+            'model': PICKFIELD_MODEL_LLM_MODEL,
+            'temperature': PICKFIELD_MODEL_LLM_TEMPERATURE
+            'max_tokens':
+        }
+        '''
+        self._config = config or {}
+        url = self._config.get('url', MODEL_LLM_URL)
+        key = self._config.get('key', MODEL_LLM_KEY)
+        self._model = self._config.get('model', MODEL_LLM_MODEL)
+        LOGGER.info(f"Initializing CsljcAsyncChatOpenAI with URL: {url}, Model: {self._model}")
+        self._client = AsyncOpenAI(base_url=url, api_key=key)
+        self._streams_context = None
+        #self._mcp_servers = dict()
+        #self._server_sessioncontexts = dict()
+        #self._server_sessions = dict()
+        #atexit.register(self.cleanup)
+        self._lock = asyncio.Lock()
+        self._mgrs = dict()  # tool_server -> PersistentSSEMCPClient
+        self.mcpserver_url = self._config.get('mcpserver_url', MCPSERVER_URL)
+    
+    async def _list_tools(self, tool_server: str, mgr) -> list[Tool]:        
+        return await mgr.list_tools()
+    
+    async def _do_mcp(self, messages, think_flag: bool = False, tool_server: str = None, priority: list = None) -> OpenAIResult:
+        priorities = []
+        if not priority:
+            priority = []
+        for p in priority:
+            if not isinstance(p, list):
+                p = [str(p)]
+            priorities.append(p)
+        if tool_server and self.mcpserver_url:
+            #async with streamable_http_client(url=f"{MCPSERVER_URL}") as (recvStream, sendStream, callback):
+            #async with sse_client(f"{MCPSERVER_URL}/mcp/{tool_server}") as (recvStream, sendStream):
+            async with streamable_http_client(url=f"{self.mcpserver_url}/mcp/{tool_server}") as (recvStream, sendStream, callback):
+                async with ClientSession(recvStream, sendStream) as session:
+                    await session.initialize()
+                    return await self._docall_mcp(messages, think_flag, tool_server, session, priorities)
+        
+    async def _docall_mcp(self, messages, think_flag: bool = False, tool_server: str = None, mgr: ClientSession = None, priorities: list = None) -> OpenAIResult:
+        msgs = messages
+        available_tools = None
+        if not mgr:
+            return OpenAIResult(OpenAIResultType.RESULT, None)
+        obj = None  # {"date": now(), "tools" : []}
+        now = datetime.now()
+        if tool_server in self._mgrs:
+            tobj = self._mgrs[tool_server]
+            if tobj and 'date' in tobj  and isinstance(tobj['date'], datetime):
+                dur = (now - tobj['date']).total_seconds()
+                if dur <  7200:
+                    obj = tobj
+        if not obj:
+            async with self._lock:
+                response = await mgr.list_tools()
+                tools = response.tools
+                if tools:
+                    available_tools = [{
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.inputSchema,
+                            "strict": True,
+                            "additionalProperties": False
+                        }
+                    } for tool in tools]
+                    obj = {"date": datetime.now(),  "tools": available_tools}
+                    self._mgrs[tool_server] = obj
+                    LOGGER.info(f"Available tools from {tool_server}: {json.dumps(available_tools, ensure_ascii=False, indent=2)}")
+        if obj and "tools" in obj and isinstance(obj["tools"], list):
+            available_tools = obj["tools"]
+        if not available_tools:
+            return OpenAIResult(OpenAIResultType.RESULT, None)
+        sys_prompt = """你是 MCP 工具调用专家。必须严格逐条遵守以下铁律：
+## Tool 调用规则
+
+1. **禁止过滤**：当多个 Tool 与用户需求匹配时，必须输出**所有**匹配的 Tool，不得自行筛选或排序
+2. **全量输出**：任一 Tool 只要被匹配，中就必须包含在调用列表中，不需要考虑 Tool 之间是否存在冲突或者依赖关系
+3. **并行调用**：所有命中的 Tool 应该在一个响应中同时输出，不要分多次调用
+4. **禁止关联推理**：结合问题本身对每个 Tool 进行独立推理判断，禁止将任意多个工具关联推理
+5. **说明理由**：任意 Tool 命中与否均需要说明理由，特别是当没有任何 Tool 命中时，必须详细说明原因
+
+违规示例（禁止）：
+- 用户问"北京和上海天气"，只调用北京天气
+- 认为某个 Tool "不太相关"而主动剔除
+
+正确示例：
+- 用户问"北京和上海天气"，同时调用 [get_weather_beijing, get_weather_shanghai]
+"""
+        msgs = [{"role": "system", "content": sys_prompt}]
+        if not isinstance(messages, list):
+            msgs.append({"role": "user", "content": str(messages)})
+        else:
+            for i, msg in enumerate(msgs):
+                if not isinstance(msg, dict) or 'role' not in msg or 'content' not in msg:
+                    msgs.append({"role": "user", "content": str(msg)})
+        try:
+            extra_body = {
+                'chat_template_kwargs': {
+                    'enable_thinking': False
+                }
+            }
+            if think_flag:
+                extra_body = {
+                    'chat_template_kwargs': {
+                        'enable_thinking': True,
+                        'thinking_budget': self._config.get('thinking_budget', 4096)
+                    }
+                }
+            stream = await self._client.chat.completions.create(
+                model= self._model, # self._config.get('model', MODEL_LLM_MODEL),
+                messages=msgs,
+                extra_body=extra_body,
+                stream=False,
+                temperature=self._config.get('temperature', MODEL_LLM_TEMPERATURE),
+                max_tokens= self._config.get('max_tokens', MODEL_LLM_MAXTOKENS),
+                tools=available_tools
+            )
+            if not stream.choices or len(stream.choices) == 0:
+                return OpenAIResult(OpenAIResultType.RESULT, '')     
+            # 同步调用，且有工具，则结果在 tool_calls 里 
+            assistant_message = stream.choices[0].message
+            if assistant_message.model_extra:
+                LOGGER.info(f"Model extra info: {json.dumps(assistant_message.model_extra, ensure_ascii=False, indent=2)}")
+            if assistant_message.tool_calls and len(assistant_message.tool_calls) > 0:
+                LOGGER.info(f"Tool calls: {[tool_call.function.name for tool_call in assistant_message.tool_calls]}")
+                tool_results: dict[str, list[any]] = dict()
+                tool_tasks: list = []
+                tool_names: list[str] = []
+                tool_name_priority: dict[str, int] = {}
+                tool_name_args: dict = {}
+                min_priority = 9999
+                # priorities 优先级别从0开始，数字越小优先级越高，满足优先级条件的工具才会被调用，否则虽然匹配但不调用
+                for tool_call in assistant_message.tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_name_priority[tool_name] = 0
+                    tool_name_args[tool_name] = json.loads(tool_call.function.arguments)
+                    if priorities:
+                        tool_name_priority[tool_name] = 9999
+                        for i, p in enumerate(priorities):
+                            if tool_name in p:
+                                tool_name_priority[tool_name] = i
+                                if i < min_priority:
+                                    min_priority = i
+                                break
+                for tool_name, tool_args in tool_name_args.items():
+                    if tool_name_priority[tool_name] <= min_priority:
+                        tool_names.append(tool_name)
+                        tool_tasks.append(mgr.call_tool(tool_name, tool_args))
+                    else:
+                        LOGGER.info(f"Skipping tool {tool_name} due to priority {tool_name_priority[tool_name]} higher than min priority {min_priority}")
+                if tool_tasks:
+                    tool_responses = await asyncio.gather(*tool_tasks, return_exceptions=True)
+                    for tool_name, tool_response in zip(tool_names, tool_responses):
+                        if isinstance(tool_response, Exception):
+                            LOGGER.error(f"Error calling tool {tool_name}: {tool_response}", exc_info=True)
+                            continue
+                        if not tool_response:
+                            LOGGER.warning(f"No response from tool {tool_name}")
+                            continue
+                        if not tool_response.content:
+                            LOGGER.warning(f"No content in response from tool {tool_name}")
+                            continue
+                        if tool_name not in tool_results:
+                            tool_results[tool_name] = []
+                        for content in tool_response.content:
+                            tool_results[tool_name].append(content.text)
+                return OpenAIResult(OpenAIResultType.RESULT, tool_results)
+            else:
+                LOGGER.info("No tool calls in assistant message, returning content as result")
+                return OpenAIResult(OpenAIResultType.RESULT, None)
+        except Exception as e:
+            LOGGER.error(f"Error in _docall_mcp: {e}", exc_info=True)
+            return OpenAIResult(OpenAIResultType.RESULT, None)
+            
+    async def _do_astream(self, messages, think_flag: bool = False, stream_flag: bool = True) -> AsyncIterator[OpenAIResult]:
+        msgs = messages    
+        if not isinstance(messages, list):
+            msgs = [{"role": "user", "content": str(messages)}]
+        else:
+            for i, msg in enumerate(msgs):
+                if not isinstance(msg, dict) or 'role' not in msg or 'content' not in msg:
+                    msgs[i] = {"role": "user", "content": str(msg)}
+        try:
+            extra_body = {
+                'chat_template_kwargs': {
+                    'enable_thinking': False
+                }
+            }
+            if think_flag:
+                extra_body = {
+                    'chat_template_kwargs': {
+                        'enable_thinking': True,
+                        'thinking_budget': self._config.get('thinking_budget', 1024)
+                    }
+                }
+            stream = await self._client.chat.completions.create(
+                model= self._model, # self._config.get('model', MODEL_LLM_MODEL),
+                messages=msgs,
+                extra_body=extra_body,
+                stream=stream_flag,
+                temperature=self._config.get('temperature', MODEL_LLM_TEMPERATURE),
+                 max_tokens= self._config.get('max_tokens', MODEL_LLM_MAXTOKENS)
+            )
+            if not stream_flag:
+                if not stream.choices or len(stream.choices) == 0:
+                    yield OpenAIResult(OpenAIResultType.RESULT, '')
+                    return                
+                yield OpenAIResult(OpenAIResultType.RESULT, stream.choices[0].message.content)
+                return
+            contents: list[str] = []
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if hasattr(delta, "reasoning_content") and delta.reasoning_content is not None:
+                    yield OpenAIResult(OpenAIResultType.THINK, delta.reasoning_content)
+                if hasattr(delta, "content") and delta.content:
+                    yield OpenAIResult(OpenAIResultType.CONTENT, delta.content)
+                    contents.append(delta.content)
+            yield OpenAIResult(OpenAIResultType.RESULT, "".join(contents))
+        except Exception as e:
+            yield OpenAIResult(OpenAIResultType.EXCEPTION, e)
+    
+    async def astream_with_think(self, messages) -> AsyncIterator[OpenAIResult]:
+        async for result in self._do_astream(messages, think_flag=True):
+            yield result
+    
+    async def astream(self, messages) -> AsyncIterator[OpenAIResult]:
+        async for result in self._do_astream(messages, think_flag=False):
+            yield result
+    
+    async def ainvoke(self, messages) -> OpenAIResult:
+        async for result in self._do_astream(messages, think_flag=False):
+            if result.type == OpenAIResultType.EXCEPTION or result.type == OpenAIResultType.RESULT:
+                return result
+        return None
+    
+    def invoke(self, messages: list[dict]) -> OpenAIResult: 
+        return asyncio.run(self.ainvoke(messages))
+    
+    async def chat(self, messages: list[dict]) -> OpenAIResult:
+        async for result in self._do_astream(messages, think_flag=False, stream_flag=False):
+            return result
+    
+    async def chat_with_think(self, messages: list[dict]) -> OpenAIResult:
+        async for result in self._do_astream(messages, think_flag=True, stream_flag=False):
+            return result
+    
+    async def toolcall(self, messages: list[dict], server_name: str, priority: list = None) -> OpenAIResult:
+        return await self._do_mcp(messages, think_flag=False, tool_server=server_name, priority=priority)
+    
+    async def toolcall_with_think(self, messages: list[dict], server_name: str, priority: list = None) -> OpenAIResult:
+        return await self._do_mcp(messages, think_flag=True, tool_server=server_name, priority=priority)

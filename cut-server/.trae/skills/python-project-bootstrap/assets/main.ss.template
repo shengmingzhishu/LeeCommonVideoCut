@@ -1,0 +1,3 @@
+#MAIN=(python-file:port)  #这个端口号是可选的
+LOG_PATH=
+MAIN=(src/<package_name>/controllers/controller.py:${PORT})

@@ -1,0 +1,78 @@
+import asyncio
+import aiohttp
+from typing import Optional, Dict, Any, AsyncIterator
+from {{ project_name }}.utils.logs import LOGGER
+
+class AsyncHttpClient:
+    """异步HTTP客户端封装"""
+
+    def __init__(self, timeout: int = 30):
+        self.timeout = aiohttp.ClientTimeout(total=timeout)
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession(timeout=self.timeout)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+
+    async def post(
+        self,
+        url: str,
+        json_data: Optional[Dict] = None,
+        data: Optional[Dict] = None,
+        headers: Optional[Dict] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """发送POST请求"""
+        try:
+            async with self.session.post(
+                url,
+                json=json_data,
+                data=data,
+                headers=headers,
+                **kwargs
+            ) as response:
+                response.raise_for_status()
+
+                # 根据Content-Type解析响应
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    return await response.json()
+                else:
+                    return {"text": await response.text()}
+
+        except aiohttp.ClientError as e:
+            LOGGER.error(f"Request failed: {e}")
+            raise
+
+    async def sse_iter_lines(
+        self,
+        url: str,
+        json_data: Optional[Dict] = None,
+        headers: Optional[Dict] = None,
+        **kwargs
+    ) -> AsyncIterator[str]:
+        """发送POST请求并以异步迭代器逐行返回SSE响应内容。"""
+        async with self.session.post(
+            url,
+            json=json_data,
+            headers=headers,
+            **kwargs
+        ) as response:
+            response.raise_for_status()
+            async for line in response.content:
+                yield line.decode('utf-8')
+
+
+async def fetch_multiple(urls: list, payload: dict):
+    """并发发送多个POST请求"""
+    async with AsyncHttpClient() as client:
+        tasks = [
+            client.post(url, json_data=payload)
+            for url in urls
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return results
