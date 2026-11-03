@@ -44,10 +44,16 @@ import {
 } from '@/services/stepService'
 import { taskService, type TaskInfo } from '@/services/taskService'
 
+export type Step3Phase = 'materials' | 'edit' | 'compose'
+
 interface Step3PanelProps {
   creationId: string
+  /** 当前阶段：素材导入 / 预览裁切 / 合成报告 */
+  phase?: Step3Phase
   /** 合成成功后回调 */
   onComposed: () => void
+  /** 裁切完成，进入合成阶段 */
+  onNext?: () => void
 }
 
 /**
@@ -183,8 +189,13 @@ interface UploadTask {
 const VIDEO_EXT = /\.(mp4|mov|mkv|webm|avi|m4v)$/i
 const IMAGE_EXT = /\.(jpg|jpeg|png|webp|bmp)$/i
 
-/** Step3 音视频素材：音频列表 + 视频列表 + 随机标记 + 一键合成 */
-export default function Step3Panel({ creationId, onComposed }: Step3PanelProps) {
+/** 音视频素材：素材导入 → 切片预览 → 合成报告 三阶段共用 */
+export default function Step3Panel({
+  creationId,
+  phase = 'compose',
+  onComposed,
+  onNext,
+}: Step3PanelProps) {
   const [audios, setAudios] = useState<AudioItemValues[]>([])
   const [videos, setVideos] = useState<VideoItemValues[]>([])
   const [marks, setMarks] = useState<VideoMarkValues[]>([])
@@ -280,6 +291,11 @@ export default function Step3Panel({ creationId, onComposed }: Step3PanelProps) 
   useEffect(() => {
     void loadMedia()
   }, [loadMedia])
+
+  // 从「素材导入」进入「预览裁切」时刷新素材（此时 TTS 音频已产出）
+  useEffect(() => {
+    if (phase !== 'materials') void loadMedia()
+  }, [phase, loadMedia])
 
   /** 拉取字幕模板真实参数（失败时保留内置兜底参数） */
   useEffect(() => {
@@ -942,13 +958,14 @@ export default function Step3Panel({ creationId, onComposed }: Step3PanelProps) 
         <Alert type="error" message={error} showIcon closable onClose={() => setError(null)} />
       )}
 
-      <Row gutter={16}>
+      {phase === 'materials' && (
+        <Row gutter={16}>
         <Col xs={24} lg={12}>
           <Card title="音频素材" extra={<Button onClick={() => void loadMedia()}>刷新</Button>}>
             {loading ? (
               <Spin />
             ) : audios.length === 0 ? (
-              <Empty description="暂无音频（可在 Step2 生成 TTS 音频）" />
+              <Empty description="暂无音频（完成第 1 步口播配音后自动出现）" />
             ) : (
               <Table
                 size="small"
@@ -1135,7 +1152,10 @@ export default function Step3Panel({ creationId, onComposed }: Step3PanelProps) 
           </Card>
         </Col>
       </Row>
+      )}
 
+      {phase === 'compose' && (
+        <>
       <Card title="成片观感（转场 / 主持人人像 / 质量）">
         <Row gutter={24}>
           <Col xs={24} lg={10}>
@@ -1670,7 +1690,10 @@ export default function Step3Panel({ creationId, onComposed }: Step3PanelProps) 
           需先完成一次合成；封面按所选时间点从最新成片截帧（JPEG）。
         </Typography.Paragraph>
       </Card>
+        </>
+      )}
 
+      {phase !== 'materials' && (
       <Card
         title="视频切片标记"
         extra={
@@ -1684,9 +1707,15 @@ export default function Step3Panel({ creationId, onComposed }: Step3PanelProps) 
             <Button onClick={handleRemark} loading={remarking} disabled={videos.length === 0}>
               重新随机标记
             </Button>
-            <Button type="primary" onClick={handleCompose} loading={composing} disabled={marks.length === 0}>
-              一键合成
-            </Button>
+            {phase === 'compose' ? (
+              <Button type="primary" onClick={handleCompose} loading={composing} disabled={marks.length === 0}>
+                一键合成
+              </Button>
+            ) : (
+              <Button type="primary" onClick={onNext} disabled={marks.length === 0}>
+                下一步：合成与报告
+              </Button>
+            )}
           </Space>
         }
       >
@@ -1754,8 +1783,9 @@ export default function Step3Panel({ creationId, onComposed }: Step3PanelProps) 
           )}
         </Space>
       </Card>
+      )}
 
-      {audios.length > 0 && (
+      {phase === 'materials' && audios.length > 0 && (
         <Card title="音频列表">
           <List
             size="small"

@@ -28,22 +28,30 @@ import Step1Panel from './step1/Step1Panel'
 import Step2Panel from './step2/Step2Panel'
 import Step3Panel from './step3/Step3Panel'
 
-/** 三步名称（对齐旧版 STEP_NAMES） */
-const STEP_NAMES = ['创作信息', '口播长文', '音视频素材']
+/** 三步名称：口播与素材 → 预览与裁切 → 合成与报告 */
+const STEP_NAMES = ['口播与素材', '预览与裁切', '合成与报告']
 
 /** 每步的引导文案（信息层级：目标 → 要点 → 解锁条件） */
 const STEP_GUIDES = [
   {
-    goal: '填写创作主题与风格，让 AI 生成口播大纲',
-    tips: ['标题 / 作者 / 风格 / 目标时长', '可关联剧集或上传参考文案', '生成大纲并保存后解锁第 2 步'],
+    goal: '填写创作信息，生成口播长文与配音，并导入音视频素材',
+    tips: [
+      '标题 / 作者 / 风格 / 目标时长，生成大纲并保存',
+      'AI 生成口播稿后可人工润色，选用音色完成配音',
+      '批量上传视频素材，配音音频自动进入素材池',
+    ],
   },
   {
-    goal: '打磨口播文案，并选用音色生成真人感配音',
-    tips: ['AI 生成口播稿后可人工润色', '按段试听音色并分配语速/停顿', '配音任务完成后解锁第 3 步'],
+    goal: '按配音时长生成视频切片，逐段换素材并虚拟串播预览',
+    tips: ['一键随机标记，自动对齐音频总时长', '每段可单独换源视频、调整起止与转场', '预览不重编码，0 IO 秒开；确认后进入合成'],
   },
   {
-    goal: '上传/选择素材，按段绑定并合成成片',
-    tips: ['批量上传视频/图片，失败可重试', '每段可单独换素材，越界自动收敛', '配乐 / 片头片尾 / 字幕 / 封面 / 平台质量预设'],
+    goal: '配置转场 / 人像 / 配乐 / 片头片尾，合成并回看历史成片',
+    tips: [
+      '全局转场 + 单段覆盖，时长 0.2~1.5s',
+      '配乐闪避、片头片尾、封面导出、平台质量预设',
+      '每次合成生成新版本，可预览 / 下载 / 返回裁切再编辑',
+    ],
   },
 ]
 
@@ -67,7 +75,6 @@ export default function CreationWizardPage() {
   const [savedOutline, setSavedOutline] = useState<Step1OutlineValues | null>(null)
   const [outputs, setOutputs] = useState<OutputRow[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [showComplete, setShowComplete] = useState(false)
   const [savingStep1, setSavingStep1] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -129,7 +136,7 @@ export default function CreationWizardPage() {
         setSavedForm(step1.form)
         setSavedOutline(step1.outline)
       }
-      const unlocked = article ? 2 : step1?.form && step1.outline ? 1 : 0
+      const unlocked = article ? 1 : 0
       if (unlocked > 0) {
         setMaxUnlocked((prev) => Math.max(prev, unlocked))
         setCurrentStep((prev) => Math.max(prev, unlocked))
@@ -139,6 +146,13 @@ export default function CreationWizardPage() {
       alive = false
     }
   }, [creationId])
+
+  // 已合成过成片时解锁「合成与报告」，刷新后可回到报告页
+  useEffect(() => {
+    if (outputs.length === 0) return
+    setMaxUnlocked((prev) => Math.max(prev, 2))
+    setCurrentStep((prev) => Math.max(prev, 2))
+  }, [outputs.length])
 
   const handlePreview = async (record: OutputRow) => {
     setError(null)
@@ -173,16 +187,15 @@ export default function CreationWizardPage() {
     }
   }
 
-  /** Step1 生成大纲后保存 */
+  /** Step1 生成大纲后保存（停留在「口播与素材」，继续生成口播长文） */
   const handleOutlineReady = async (form: Step1FormValues, outline: Step1OutlineValues) => {
     setSavedForm(form)
     setSavedOutline(outline)
     setSavingStep1(true)
     setError(null)
     try {
-      const step = await stepService.saveStep1(creationId, form, outline)
-      setMaxUnlocked((prev) => Math.max(prev, step - 1))
-      setCurrentStep(1)
+      await stepService.saveStep1(creationId, form, outline)
+      message.success('创作信息已保存，请继续生成口播长文')
     } catch (err) {
       setError(err instanceof ApiError ? `${err.message}${err.traceId ? `（traceId: ${err.traceId}）` : ''}` : '保存失败')
     } finally {
@@ -190,8 +203,15 @@ export default function CreationWizardPage() {
     }
   }
 
-  const handleStep2Saved = (step: number) => {
-    setMaxUnlocked((prev) => Math.max(prev, step - 1))
+  /** 口播与配音完成 → 进入「预览与裁切」 */
+  const handleStep2Saved = () => {
+    setMaxUnlocked((prev) => Math.max(prev, 1))
+    setCurrentStep(1)
+  }
+
+  /** 切片确认 → 进入「合成与报告」 */
+  const handleReadyToCompose = () => {
+    setMaxUnlocked((prev) => Math.max(prev, 2))
     setCurrentStep(2)
   }
 
@@ -243,7 +263,7 @@ export default function CreationWizardPage() {
   }
 
   const handleComposed = () => {
-    setShowComplete(true)
+    message.success('成片已生成，报告已刷新')
     void loadOutputs()
   }
 
@@ -265,8 +285,6 @@ export default function CreationWizardPage() {
 
       setAutoStage('2/6 保存创作信息…')
       await stepService.saveStep1(creationId, form, outline)
-      setMaxUnlocked((prev) => Math.max(prev, 1))
-      setCurrentStep(1)
 
       setAutoStage('3/6 生成口播长文…')
       const article = await stepService.generateArticle(creationId)
@@ -287,13 +305,13 @@ export default function CreationWizardPage() {
           throw new Error(task.error || '配音任务失败')
         }
       }
-      setMaxUnlocked((prev) => Math.max(prev, 2))
-      setCurrentStep(2)
+      setMaxUnlocked((prev) => Math.max(prev, 1))
+      setCurrentStep(1)
 
       setAutoStage('5/6 扫描素材并生成标记…')
       const media = await stepService.getMediaList(creationId)
       const audios = [...media.systemAudios, ...media.customAudios].filter((a) => a.selected)
-      if (audios.length === 0) throw new Error('没有可用配音音频，请回到 Step2 重新生成口播')
+      if (audios.length === 0) throw new Error('没有可用配音音频，请回到第 1 步重新生成口播')
       if (media.videoFiles.length === 0) {
         throw new Error('项目未配置视频素材，请先在项目详情上传本地视频')
       }
@@ -325,7 +343,9 @@ export default function CreationWizardPage() {
       }
 
       setAutoStage('合成完成')
-      setShowComplete(true)
+      setMaxUnlocked((prev) => Math.max(prev, 2))
+      setCurrentStep(2)
+      message.success('一键生成成片完成')
       await loadOutputs()
     } catch (err) {
       setError(
@@ -431,7 +451,7 @@ export default function CreationWizardPage() {
           <Alert type="error" message={error} showIcon closable onClose={() => setError(null)} />
         )}
 
-        {(quickPrompt || savedForm) && !showComplete && (
+        {(quickPrompt || savedForm) && (
           <Alert
             type="info"
             showIcon
@@ -459,146 +479,150 @@ export default function CreationWizardPage() {
           <Alert type="info" showIcon message={autoStage || '自动成片进行中…'} />
         )}
 
-        {showComplete ? (
+        {outputs.length > 0 && (
+          <Alert
+            type="success"
+            showIcon
+            message={`已有 ${outputs.length} 个成片`}
+            description="可随时回到「合成与报告」预览、下载历史版本，或返回「预览与裁切」调整后再次合成。"
+            action={
+              <Button
+                size="small"
+                onClick={() => {
+                  setMaxUnlocked((prev) => Math.max(prev, 2))
+                  setCurrentStep(2)
+                }}
+              >
+                查看成片
+              </Button>
+            }
+          />
+        )}
+
+        <Card>
+          <Steps
+            current={currentStep}
+            items={STEP_NAMES.map((title, i) => ({
+              title,
+              description:
+                i < maxUnlocked || (i === 0 && savedOutline)
+                  ? '已完成'
+                  : i === currentStep
+                    ? '进行中'
+                    : '待解锁',
+            }))}
+            onChange={(step) => {
+              if (step <= maxUnlocked) setCurrentStep(step)
+            }}
+          />
+
+          <Space wrap size={8} style={{ marginTop: 12 }}>
+            <Tag color="blue">第 {currentStep + 1}/3 步</Tag>
+            <Tag color={maxUnlocked >= 1 ? 'green' : 'default'}>
+              口播与素材 · {maxUnlocked >= 1 ? '配音已完成' : savedOutline ? '待生成口播' : '待开始'}
+            </Tag>
+            <Tag color={maxUnlocked >= 2 ? 'green' : 'default'}>
+              预览与裁切 · {maxUnlocked >= 2 ? '切片已确认' : '待裁切'}
+            </Tag>
+            <Tag color={outputs.length > 0 ? 'green' : 'default'}>
+              合成与报告 · {outputs.length > 0 ? `${outputs.length} 个成片` : '待合成'}
+            </Tag>
+            {projectId && (
+              <Button size="small" onClick={() => void openHistory(currentStep + 1)}>
+                第 {currentStep + 1} 步历史版本
+              </Button>
+            )}
+          </Space>
+
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginTop: 12 }}
+            message={`本步目标：${STEP_GUIDES[currentStep].goal}`}
+            description={
+              <Space direction="vertical" size={2}>
+                {STEP_GUIDES[currentStep].tips.map((tip) => (
+                  <Typography.Text key={tip} type="secondary">
+                    · {tip}
+                  </Typography.Text>
+                ))}
+              </Space>
+            }
+          />
+
+          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between' }}>
+            <Button disabled={currentStep === 0} onClick={() => setCurrentStep((s) => s - 1)}>
+              上一步
+            </Button>
+            {currentStep < 2 ? (
+              <Button
+                type="primary"
+                disabled={currentStep === 0 && maxUnlocked < 1}
+                onClick={() => {
+                  if (currentStep === 1) handleReadyToCompose()
+                  else setCurrentStep((s) => s + 1)
+                }}
+              >
+                下一步：{STEP_NAMES[currentStep + 1]}
+              </Button>
+            ) : (
+              <Button onClick={() => setCurrentStep(1)}>返回裁切</Button>
+            )}
+          </div>
+        </Card>
+
+        {currentStep === 0 && (
+          <>
+            <Step1Panel
+              creationId={creationId}
+              initialForm={savedForm ?? quickForm}
+              initialOutline={savedOutline}
+              onOutlineReady={handleOutlineReady}
+            />
+            {savedOutline ? (
+              <Step2Panel creationId={creationId} onSaved={handleStep2Saved} />
+            ) : (
+              <Alert
+                type="info"
+                showIcon
+                message="先完成上方创作信息并生成大纲，口播长文与配音面板会自动出现"
+              />
+            )}
+          </>
+        )}
+
+        <Step3Panel
+          creationId={creationId}
+          phase={currentStep === 0 ? 'materials' : currentStep === 1 ? 'edit' : 'compose'}
+          onComposed={handleComposed}
+          onNext={handleReadyToCompose}
+        />
+
+        {currentStep === 2 && (
           <Card
-            title="完成页 · 多次合成"
+            title="合成报告 · 多次合成"
             extra={
               <Space>
-                <Button onClick={() => setShowComplete(false)}>返回编辑</Button>
-                <Button type="primary" onClick={() => void loadOutputs()}>刷新</Button>
+                <Button onClick={() => setCurrentStep(1)}>返回裁切</Button>
+                <Button type="primary" onClick={() => void loadOutputs()}>
+                  刷新
+                </Button>
               </Space>
             }
           >
             {outputs.length === 0 ? (
-              <Empty description="还没有合成记录" />
+              <Empty description="还没有合成记录：完成上方参数配置后点击「一键合成」" />
             ) : (
               <Table size="small" columns={outputColumns} dataSource={outputs} pagination={false} />
             )}
+            <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+              每次合成生成新版本；预览 / 下载不影响当前工程，点击「返回裁切」可调整切片后再次合成。
+            </Typography.Paragraph>
           </Card>
-        ) : (
-          <>
-            {outputs.length > 0 && (
-              <Alert
-                type="success"
-                showIcon
-                message={`已有 ${outputs.length} 个成片`}
-                description="刷新页面后可从这里重新进入完成页，预览或下载历史成片。"
-                action={
-                  <Button size="small" onClick={() => setShowComplete(true)}>
-                    查看成片
-                  </Button>
-                }
-              />
-            )}
-            <Card>
-              <Steps
-                current={currentStep}
-                items={STEP_NAMES.map((title, i) => ({
-                  title,
-                  description:
-                    i < maxUnlocked || (i === 0 && savedOutline)
-                      ? '已完成'
-                      : i === currentStep
-                        ? '进行中'
-                        : '待解锁',
-                }))}
-                onChange={(step) => {
-                  if (step <= maxUnlocked) setCurrentStep(step)
-                }}
-              />
+        )}
 
-              <Space wrap size={8} style={{ marginTop: 12 }}>
-                <Tag color="blue">第 {currentStep + 1}/3 步</Tag>
-                <Tag color={savedOutline ? 'green' : 'default'}>
-                  第 1 步 · {savedOutline ? '大纲已保存' : '待生成'}
-                </Tag>
-                <Tag color={maxUnlocked >= 2 ? 'green' : 'default'}>
-                  第 2 步 · {maxUnlocked >= 2 ? '配音已保存' : '待完成'}
-                </Tag>
-                <Tag color={outputs.length > 0 ? 'green' : 'default'}>
-                  第 3 步 · {outputs.length > 0 ? `${outputs.length} 个成片` : '待合成'}
-                </Tag>
-                {projectId && (
-                  <Button size="small" onClick={() => void openHistory(currentStep + 1)}>
-                    第 {currentStep + 1} 步历史版本
-                  </Button>
-                )}
-              </Space>
-
-              <Alert
-                type="info"
-                showIcon
-                style={{ marginTop: 12 }}
-                message={`本步目标：${STEP_GUIDES[currentStep].goal}`}
-                description={
-                  <Space direction="vertical" size={2}>
-                    {STEP_GUIDES[currentStep].tips.map((tip) => (
-                      <Typography.Text key={tip} type="secondary">
-                        · {tip}
-                      </Typography.Text>
-                    ))}
-                  </Space>
-                }
-              />
-
-              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between' }}>
-                <Button disabled={currentStep === 0} onClick={() => setCurrentStep((s) => s - 1)}>
-                  上一步
-                </Button>
-                {currentStep < 2 ? (
-                  <Button
-                    type="primary"
-                    disabled={currentStep + 1 > maxUnlocked}
-                    onClick={() => setCurrentStep((s) => s + 1)}
-                  >
-                    下一步：{STEP_NAMES[currentStep + 1]}
-                  </Button>
-                ) : (
-                  <Button type="primary" disabled={outputs.length === 0} onClick={() => setShowComplete(true)}>
-                    查看成片{outputs.length > 0 ? `（${outputs.length}）` : ''}
-                  </Button>
-                )}
-              </div>
-            </Card>
-
-            {currentStep === 0 && (
-              <Step1Panel
-                creationId={creationId}
-                initialForm={savedForm ?? quickForm}
-                initialOutline={savedOutline}
-                onOutlineReady={handleOutlineReady}
-              />
-            )}
-            {currentStep === 1 && (
-              <Step2Panel creationId={creationId} onSaved={handleStep2Saved} />
-            )}
-            {currentStep === 2 && (
-              <Step3Panel creationId={creationId} onComposed={handleComposed} />
-            )}
-
-            {savingStep1 && (
-              <Typography.Text type="secondary">正在保存 Step1…</Typography.Text>
-            )}
-
-            {savedOutline && currentStep === 1 && (
-              <Card size="small" title="上一步生成的大纲">
-                <Space direction="vertical" size={4}>
-                  <Typography.Text type="secondary">主要任务：{savedOutline.mainTask || '—'}</Typography.Text>
-                  <Typography.Text type="secondary">
-                    核心关键词：{savedOutline.coreKeywords.join('、') || '—'}
-                  </Typography.Text>
-                </Space>
-              </Card>
-            )}
-
-            {savedForm && currentStep === 2 && (
-              <Card size="small" title="上一步的口播长文">
-                <Typography.Text type="secondary">
-                  {savedForm.title} · {savedOutline?.mainTask}
-                </Typography.Text>
-              </Card>
-            )}
-          </>
+        {savingStep1 && (
+          <Typography.Text type="secondary">正在保存创作信息…</Typography.Text>
         )}
       </Space>
 
