@@ -58,6 +58,53 @@ class TestGenerateSrt:
         assert "00:00:06,500" in srt
 
 
+class TestSingleLineCues:
+    """字幕保证单行展示"""
+
+    def test_newlines_collapsed(self):
+        srt = generate_srt([{"text": "第一行\n第二行", "start": 0, "end": 2}])
+        assert "第一行 第二行" in srt
+        assert "第一行\n第二行" not in srt
+
+    def test_long_text_split_into_single_line_cues(self):
+        text = "如果你也是青春懵懂与财富好奇心爆棚的那种人，那就别眨眼，跟我一起走进港岛少年"
+        srt = generate_srt([{"text": text, "start": 0, "end": 10}], max_chars=18)
+        blocks = [b for b in srt.strip().split("\n\n") if b]
+        assert len(blocks) > 1
+        for block in blocks:
+            lines = block.split("\n")
+            assert len(lines) == 3, "每条字幕只能是「序号 + 时间轴 + 单行文本」"
+            assert len(lines[2]) <= 19
+        # 拆分后仍覆盖原始时间轴
+        assert "00:00:00,000" in blocks[0]
+        assert "00:00:10,000" in blocks[-1]
+
+    def test_split_timeline_is_contiguous(self):
+        srt = generate_srt(
+            [{"text": "一二三四五六七八九十一二三四五六七八九十", "start": 0, "end": 8}],
+            max_chars=10,
+        )
+        times = [
+            line
+            for line in srt.splitlines()
+            if "-->" in line
+        ]
+        assert len(times) >= 2
+        end_of_previous = None
+        for line in times:
+            start, end = (part.strip() for part in line.split("-->"))
+            if end_of_previous is not None:
+                assert start == end_of_previous
+            end_of_previous = end
+
+    def test_style_based_max_chars(self):
+        from app.managers.ffmpeg_manager import FFmpegManager
+
+        assert FFmpegManager.subtitle_max_chars("默认白字黑描边") == 18
+        assert FFmpegManager.subtitle_max_chars("超大综艺字") < 18
+        assert FFmpegManager.subtitle_max_chars("不存在的样式") == 18
+
+
 class TestGenerateTimestamps:
     """按字数比例估算时间轴"""
 

@@ -296,7 +296,11 @@ async def handle_compose(ctx: TaskContext) -> dict[str, Any]:
     srt_path: Path | None = None
     if timestamps:
         srt_path = out_dir / "subtitle.srt"
-        srt_path.write_text(generate_srt(timestamps, offset=intro_duration), encoding="utf-8")
+        max_chars = FFmpegManager.subtitle_max_chars(subtitle_style)
+        srt_path.write_text(
+            generate_srt(timestamps, offset=intro_duration, max_chars=max_chars),
+            encoding="utf-8",
+        )
 
     avatar_path = _resolve_avatar_path(avatar, creation_id)
     final_path = out_dir / "final.mp4"

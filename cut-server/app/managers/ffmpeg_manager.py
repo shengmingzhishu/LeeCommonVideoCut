@@ -767,6 +767,26 @@ class FFmpegManager:
         return ",".join(f"{key}={tokens[key]}" for key in order)
 
     @staticmethod
+    def subtitle_max_chars(style: str) -> int:
+        """按字幕样式字号估算单行可容纳字数
+
+        SRT 转 ASS 后画布固定为 384x288，字号越大单行字数越少。
+        生成 SRT 时据此拆分长句，保证每条字幕都能单行展示、不被自动折行。
+        """
+        force_style = SUBTITLE_STYLES.get(style, SUBTITLE_STYLES["默认白字黑描边"])
+        font_size = 18
+        for part in force_style.split(","):
+            key, _, value = part.partition("=")
+            if key.strip() == "FontSize":
+                try:
+                    font_size = max(10, int(float(value)))
+                except ValueError:
+                    pass
+                break
+        usable_width = 384 - 20
+        return max(6, usable_width // font_size - 2)
+
+    @staticmethod
     def finalize_video(
         video: Path,
         output: Path,
