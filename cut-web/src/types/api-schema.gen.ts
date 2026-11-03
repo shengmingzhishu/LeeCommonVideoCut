@@ -1315,7 +1315,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 获取音色目录（13 个中文风格预设） */
+        /** 获取音色目录（14 个中文风格预设） */
         get: {
             parameters: {
                 query?: never;
@@ -3099,7 +3099,7 @@ export interface components {
             form?: components["schemas"]["Step1Form"];
             outline?: components["schemas"]["Step1Outline"];
         };
-        /** @description 音色目录项（13 个中文风格预设，底层神经网络发音人 8 个） */
+        /** @description 音色目录项（14 个中文风格预设，底层神经网络发音人 9 个） */
         TTSVoice: {
             /** @example female_sweet */
             id?: string;

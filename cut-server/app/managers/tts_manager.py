@@ -5,10 +5,12 @@ TTS 语音合成管理器
 任一引擎失败自动降级到下一个，全部失败抛 ExternalServiceError。
 
 多音色能力：
-- 13 个中文风格预设（覆盖 8 个微软神经网络发音人：浑厚/磁性/年轻男声，
-  甜美/亲和/成熟女声，方言，电商带货、口播解说、促销叫卖、温柔种草）。
-- 支持 rate（语速 %）、pitch（音调 Hz）、volume（音量 %）。
+- 14 个中文风格预设（覆盖 9 个微软神经网络发音人：浑厚/磁性/年轻男声，
+  甜美/亲和/成熟/知性女声，方言，电商带货、口播解说、促销叫卖、温柔种草）。
+- 支持 rate（语速 %）、pitch（音调 Hz）、volume（音量 %）；预设语调收敛在
+  自然区间（语速 ±15%、音调 ±6Hz、音量 ±5%），避免机械感与破音。
 - 支持按段落分配音色与段后停顿，逐段合成后用 ffmpeg 拼接。
+- 合成前清洗 Markdown/表情/中文间空格，避免念出符号或异常停顿。
 
 产物校验：ffprobe 复核时长，且要求总时长不短于文本所需（防止无效音频被标记完成）。
 
@@ -18,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import re
 import shutil
 from pathlib import Path
@@ -39,49 +42,56 @@ DEFAULT_VOICE_ID = "female_sweet"
 # 中文口播速度：字/秒（仅用于时长估算）
 CHARS_PER_SECOND = 3.5
 
-# 音色目录：13 个风格预设，底层使用 8 个微软神经网络发音人
+# 音色目录：14 个风格预设，底层使用 9 个微软神经网络发音人
+# 语调默认值收敛在自然区间：语速 ±15%、音调 ±6Hz、音量 ±5%
 VOICE_CATALOG: list[dict[str, Any]] = [
     {
         "id": "male_deep", "name": "浑厚男声", "gender": "male",
         "style": "口播解说", "voice": "zh-CN-YunyangNeural",
-        "rate": -5, "pitch": -4, "volume": 0,
+        "rate": -4, "pitch": -2, "volume": 0,
         "description": "沉稳浑厚，适合纪录片旁白、专业口播",
     },
     {
         "id": "male_magnetic", "name": "磁性男声", "gender": "male",
         "style": "磁性叙事", "voice": "zh-CN-YunjianNeural",
-        "rate": -3, "pitch": -2, "volume": 0,
+        "rate": -2, "pitch": -1, "volume": 0,
         "description": "低沉有磁性，适合剧情解说、悬疑旁白",
     },
     {
         "id": "male_young", "name": "年轻男声", "gender": "male",
         "style": "年轻活力", "voice": "zh-CN-YunxiNeural",
-        "rate": 5, "pitch": 0, "volume": 0,
+        "rate": 3, "pitch": 0, "volume": 0,
         "description": "清爽年轻，适合日常分享、Vlog 口播",
     },
     {
         "id": "male_youth", "name": "少年男声", "gender": "male",
         "style": "少年轻松", "voice": "zh-CN-YunxiaNeural",
-        "rate": 8, "pitch": 2, "volume": 0,
+        "rate": 6, "pitch": 1, "volume": 0,
         "description": "少年感强，适合轻松搞笑、二次元内容",
     },
     {
         "id": "female_sweet", "name": "甜美女声", "gender": "female",
         "style": "甜美亲和", "voice": "zh-CN-XiaoxiaoNeural",
-        "rate": 0, "pitch": 2, "volume": 0,
+        "rate": 0, "pitch": 0, "volume": 0,
         "description": "甜美自然，通用性最强，适合大多数推广素材",
     },
     {
         "id": "female_warm", "name": "亲和女声", "gender": "female",
         "style": "亲和自然", "voice": "zh-CN-XiaoyiNeural",
-        "rate": 4, "pitch": 0, "volume": 0,
+        "rate": 3, "pitch": 0, "volume": 0,
         "description": "活泼亲和，适合种草、生活类内容",
     },
     {
         "id": "female_mature", "name": "成熟女声", "gender": "female",
         "style": "成熟稳重", "voice": "zh-CN-XiaoxiaoNeural",
-        "rate": -10, "pitch": -3, "volume": 0,
+        "rate": -6, "pitch": -1, "volume": 0,
         "description": "语速从容，适合知识讲解、情感叙事",
+    },
+    {
+        "id": "female_elegant", "name": "知性女声", "gender": "female",
+        "style": "知性温柔", "voice": "zh-CN-XiaoxuanNeural",
+        "rate": -2, "pitch": 0, "volume": 0,
+        "description": "温柔知性、吐字流畅，适合品牌旁白与情感故事",
     },
     {
         "id": "female_northeast", "name": "东北女声", "gender": "female",
@@ -98,19 +108,19 @@ VOICE_CATALOG: list[dict[str, Any]] = [
     {
         "id": "style_ecommerce", "name": "电商带货", "gender": "female",
         "style": "电商带货", "voice": "zh-CN-XiaoxiaoNeural",
-        "rate": 18, "pitch": 6, "volume": 5,
-        "description": "节奏快、情绪高，适合商品卖点口播",
+        "rate": 10, "pitch": 2, "volume": 0,
+        "description": "节奏明快、情绪饱满，适合商品卖点口播",
     },
     {
         "id": "style_hardsell", "name": "促销叫卖", "gender": "male",
         "style": "促销叫卖", "voice": "zh-CN-YunjianNeural",
-        "rate": 25, "pitch": 3, "volume": 15,
+        "rate": 15, "pitch": 2, "volume": 0,
         "description": "高亢有力，适合限时促销、福利播报",
     },
     {
         "id": "style_gentle", "name": "温柔种草", "gender": "female",
         "style": "温柔种草", "voice": "zh-CN-XiaoxiaoNeural",
-        "rate": -8, "pitch": 1, "volume": 0,
+        "rate": -6, "pitch": 0, "volume": 0,
         "description": "轻声细语，适合美妆、好物分享",
     },
     {
@@ -232,6 +242,20 @@ class TTSManager:
     # ---------- 内部工具 ----------
 
     @staticmethod
+    def _normalize_text(text: str) -> str:
+        """清洗待朗读文本，避免念出 Markdown 符号或出现异常停顿"""
+        text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+        text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+        text = re.sub(r"[*_`#>|~]+", "", text)
+        text = re.sub(r"(?m)^\s*[-+]\s+", "", text)
+        text = re.sub(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]", "", text)
+        text = text.replace("\u3000", " ").replace("...", "…")
+        text = re.sub(r"[ \t]+", " ", text)
+        # 去掉中文字符之间的水平空格，避免逐字停顿（保留换行作为自然停顿）
+        text = re.sub(r"(?<=[\u4e00-\u9fff])[ \t]+(?=[\u4e00-\u9fff])", "", text)
+        return text.strip()
+
+    @staticmethod
     def _normalize_segments(
         segments: list[Any] | None, script: str, voice: str
     ) -> list[dict[str, Any]]:
@@ -242,7 +266,7 @@ class TTSManager:
                 data = seg if isinstance(seg, dict) else (
                     seg.model_dump() if hasattr(seg, "model_dump") else dict(seg)
                 )
-                text = str(data.get("text") or "").strip()
+                text = TTSManager._normalize_text(str(data.get("text") or ""))
                 if not text:
                     continue
                 data["text"] = text
@@ -250,7 +274,11 @@ class TTSManager:
                 result.append(data)
             return result
 
-        paragraphs = [p.strip() for p in re.split(r"\n+", script or "") if p.strip()]
+        paragraphs = [
+            TTSManager._normalize_text(p)
+            for p in re.split(r"\n+", script or "")
+        ]
+        paragraphs = [p for p in paragraphs if p]
         return [{"index": i, "text": p, "voice_id": voice} for i, p in enumerate(paragraphs)]
 
     @staticmethod
@@ -315,7 +343,7 @@ class TTSManager:
                 audio_chunks: list[bytes] = []
                 boundaries: list[dict[str, object]] = []
                 last_error: Exception | None = None
-                for attempt in range(4):
+                for attempt in range(6):
                     try:
                         communicate = edge_tts.Communicate(
                             text,
@@ -351,8 +379,8 @@ class TTSManager:
                             keyword in message
                             for keyword in ("429", "Invalid response status", "503", "timed out", "Timeout")
                         )
-                        if attempt < 3 and retryable:
-                            await asyncio.sleep(1.0 * (2 ** attempt))
+                        if attempt < 5 and retryable:
+                            await asyncio.sleep(1.0 * (2 ** attempt) + random.uniform(0, 0.5))
                             continue
                         raise
 
@@ -361,7 +389,7 @@ class TTSManager:
 
                 if i > 0:
                     # 段间轻微节流，降低连续连接被限流的概率
-                    await asyncio.sleep(0.2)
+                    await asyncio.sleep(0.5)
 
                 seg_path = tmp_dir / f"seg_{i + 1:03d}.mp3"
                 seg_path.write_bytes(b"".join(audio_chunks))

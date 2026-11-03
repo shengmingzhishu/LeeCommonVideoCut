@@ -425,7 +425,7 @@ components:
     # ---------- TTS 音色 ----------
     TTSVoice:
       type: object
-      description: 音色目录项（13 个中文风格预设，底层神经网络发音人 8 个）
+      description: 音色目录项（14 个中文风格预设，底层神经网络发音人 9 个）
       properties:
         id: { type: string, example: female_sweet }
         name: { type: string, example: 甜美少女 }
@@ -1545,7 +1545,7 @@ paths:
   /api/tts/voices:
     get:
       tags: [TTS]
-      summary: 获取音色目录（13 个中文风格预设）
+      summary: 获取音色目录（14 个中文风格预设）
       responses:
         '200':
           description: OK

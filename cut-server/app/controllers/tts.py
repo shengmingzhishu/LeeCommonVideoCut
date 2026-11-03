@@ -1,7 +1,7 @@
 """
 TTS 路由
 ========
-- GET  /api/tts/voices   音色目录（13 个中文风格）
+- GET  /api/tts/voices   音色目录（14 个中文风格）
 - POST /api/tts/preview  音色试听（返回 audio/mpeg）
 """
 from __future__ import annotations
