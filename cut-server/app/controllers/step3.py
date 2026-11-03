@@ -28,6 +28,7 @@ from app.schemas import (
     Step3ComposeResponse,
     Step3RemarkRequest,
     Step3RemarkResponse,
+    Step3SaveMarkersRequest,
     Step3SaveStateRequest,
     Step3SaveStateResponse,
     Step3VideoSourcesRequest,
@@ -73,6 +74,29 @@ def preview_media(
     creation = _load_creation(db, creation_id, user)
     path = Step3Service(db).resolve_preview_path(creation, scope, name)
     return file_response(path, request.headers.get("range"))
+
+
+@router.get("/markers", response_model=ApiResponse[dict[str, Any]])
+def markers(
+    creation_id: Annotated[str, Query()],
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """读取已保存的视频标记（刷新后恢复手动指定的起止时间）"""
+    creation = _load_creation(db, creation_id, user)
+    return ApiResponse(data=Step3Service(db).markers(creation=creation))
+
+
+@router.post("/markers", response_model=ApiResponse[dict[str, Any]])
+def save_markers(
+    req: Step3SaveMarkersRequest,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """保存手动编辑后的视频标记（刷新后仍可恢复）"""
+    creation = _load_creation(db, req.creation_id, user)
+    marks = [m.model_dump() for m in req.markers]
+    return ApiResponse(data=Step3Service(db).save_markers(creation=creation, marks=marks))
 
 
 @router.post("/remark", response_model=ApiResponse[Step3RemarkResponse])
@@ -154,6 +178,7 @@ def compose(
         fast_mode=req.fast_mode,
         resolution=req.resolution,
         subtitle_style=req.subtitle_style,
+        subtitle_position=req.subtitle_position.model_dump() if req.subtitle_position else None,
         global_transition=req.global_transition.model_dump(),
         avatar=req.avatar.model_dump() if req.avatar else None,
         quality=req.quality.model_dump() if req.quality else None,

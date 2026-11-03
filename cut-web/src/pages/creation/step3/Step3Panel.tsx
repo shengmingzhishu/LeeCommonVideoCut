@@ -37,6 +37,7 @@ import {
   type IntroOutroConfigValues,
   type IntroOutroItemValues,
   type QualityConfigValues,
+  type SubtitlePositionValues,
   type SubtitleStyleSpecValues,
   type TransitionConfigValues,
   type VideoItemValues,
@@ -50,6 +51,8 @@ interface Step3PanelProps {
   creationId: string
   /** 当前阶段：素材导入 / 预览裁切 / 合成报告 */
   phase?: Step3Phase
+  /** 素材刷新令牌（TTS 产物就绪后递增） */
+  refreshToken?: number
   /** 合成成功后回调 */
   onComposed: () => void
   /** 裁切完成，进入合成阶段 */
@@ -63,10 +66,22 @@ interface Step3PanelProps {
  * 因此预览字号 = FontSize × PREVIEW_FRAME_HEIGHT / 288，位置比例与成片一致。
  */
 const ASS_PLAY_RES_Y = 288
-/** libass 默认 PlayResX=384，对应默认左右安全边距 MarginL/R=10 */
-const ASS_PLAY_RES_X = 384
+/** libass 默认左右安全边距 MarginL/R=10 */
 const ASS_DEFAULT_MARGIN_X = 10
 const PREVIEW_FRAME_HEIGHT = 200
+
+/** 字幕九宫格对齐（ASS Alignment 1~9，按画面顺序 7~9 / 4~6 / 1~3 排列） */
+const ALIGN_CELLS = [
+  { value: 7, label: '◤', title: '左上' },
+  { value: 8, label: '▲', title: '中上' },
+  { value: 9, label: '◥', title: '右上' },
+  { value: 4, label: '◀', title: '左中' },
+  { value: 5, label: '●', title: '居中' },
+  { value: 6, label: '▶', title: '右中' },
+  { value: 1, label: '◣', title: '左下' },
+  { value: 2, label: '▼', title: '中下' },
+  { value: 3, label: '◢', title: '右下' },
+]
 
 /** 后端 /step3/subtitle-styles 不可用时的兜底参数（与 SUBTITLE_STYLES 保持一致） */
 const DEFAULT_SUBTITLE_SPECS: SubtitleStyleSpecValues[] = [
@@ -94,20 +109,35 @@ function assColour(value: string, fallback = '#FFFFFF'): string {
 function subtitlePreviewStyle(
   spec: SubtitleStyleSpecValues,
   frameHeight: number,
-  frameWidth: number,
+  position?: SubtitlePositionValues,
 ): CSSProperties {
   const scale = frameHeight / ASS_PLAY_RES_Y
   const fontSize = Math.max(9, spec.fontSize * scale)
-  const margin = Math.max(2, spec.marginV * scale)
-  const sideMargin = Math.max(2, (ASS_DEFAULT_MARGIN_X * frameWidth) / ASS_PLAY_RES_X)
+  const alignment = position?.alignment || spec.alignment
+  const marginV = Math.max(0, spec.marginV + (position?.marginV ?? 0))
   const stroke = spec.outline * scale
-  const isTop = spec.alignment >= 7 && spec.alignment <= 9
+  const row = Math.ceil(alignment / 3) // 1=底部 2=中部 3=顶部
+  const column = (alignment - 1) % 3 // 0=左 1=中 2=右
+  const isTop = row === 3
   const isBox = spec.borderStyle === 3 || spec.borderStyle === 4
+
+  // 水平偏移与烧录端一致：左对齐加 MarginL，右对齐减 MarginR，居中两侧对称
+  const baseSide = Math.max(2, ASS_DEFAULT_MARGIN_X * scale)
+  const offset = (position?.marginH ?? 0) * scale
+  let marginL = baseSide
+  let marginR = baseSide
+  if (column === 0) marginL = Math.max(2, baseSide + offset)
+  else if (column === 2) marginR = Math.max(2, baseSide - offset)
+  else {
+    marginL = Math.max(2, baseSide + offset * 2)
+    marginR = Math.max(2, baseSide - offset * 2)
+  }
+
   return {
     position: 'absolute',
-    left: sideMargin,
-    right: sideMargin,
-    textAlign: 'center',
+    left: marginL,
+    right: marginR,
+    textAlign: column === 0 ? 'left' : column === 2 ? 'right' : 'center',
     fontSize,
     lineHeight: 1.35,
     fontWeight: isBox || spec.outline >= 4 ? 700 : 500,
@@ -122,7 +152,11 @@ function subtitlePreviewStyle(
       !isBox && stroke > 0
         ? `0 0 ${Math.max(1, stroke / 2)}px ${assColour(spec.outlineColour, '#000000')}`
         : 'none',
-    ...(isTop ? { top: margin } : { bottom: margin }),
+    ...(row === 2
+      ? { top: '50%', transform: 'translateY(-50%)' }
+      : isTop
+        ? { top: Math.max(2, marginV * scale) }
+        : { bottom: Math.max(2, marginV * scale) }),
   }
 }
 
@@ -193,6 +227,7 @@ const IMAGE_EXT = /\.(jpg|jpeg|png|webp|bmp)$/i
 export default function Step3Panel({
   creationId,
   phase = 'compose',
+  refreshToken = 0,
   onComposed,
   onNext,
 }: Step3PanelProps) {
@@ -206,6 +241,22 @@ export default function Step3Panel({
   const [retrying, setRetrying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [task, setTask] = useState<TaskInfo | null>(null)
+  /** 素材预览（视频/音频，项目内通用） */
+  const [mediaPreview, setMediaPreview] = useState<{
+    open: boolean
+    kind: 'video' | 'audio'
+    name: string
+    url: string | null
+    loading: boolean
+  }>({ open: false, kind: 'video', name: '', url: null, loading: false })
+  /** 单段预览（手动指定的起止时间） */
+  const [segmentPreview, setSegmentPreview] = useState<{
+    open: boolean
+    mark: VideoMarkValues | null
+    url: string | null
+    loading: boolean
+  }>({ open: false, mark: null, url: null, loading: false })
+  const segmentVideoRef = useRef<HTMLVideoElement | null>(null)
   /** 虚拟串播预览 */
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -217,6 +268,11 @@ export default function Step3Panel({
   const objectUrlsRef = useRef<string[]>([])
   /** 音色无关的成片观感配置 */
   const [subtitleStyle, setSubtitleStyle] = useState('默认白字黑描边')
+  const [subtitlePosition, setSubtitlePosition] = useState<SubtitlePositionValues>({
+    alignment: 0,
+    marginV: 0,
+    marginH: 0,
+  })
   const [globalTransition, setGlobalTransition] = useState<TransitionConfigValues>({
     type: 'none',
     duration: 0.5,
@@ -297,6 +353,32 @@ export default function Step3Panel({
     if (phase !== 'materials') void loadMedia()
   }, [phase, loadMedia])
 
+  // TTS 产物就绪后刷新素材（第一步即可看到并试听配音）
+  useEffect(() => {
+    if (refreshToken > 0) void loadMedia()
+  }, [refreshToken, loadMedia])
+
+  // 刷新后恢复已保存的标记，保证手动指定的起止时间不丢失
+  useEffect(() => {
+    let alive = true
+    void stepService
+      .getMarkers(creationId)
+      .then((res) => {
+        if (!alive || res.markers.length === 0) return
+        setMarks(res.markers)
+        setTotalDuration(res.totalDuration)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [creationId])
+
+  // 标记总时长随手动编辑实时更新
+  useEffect(() => {
+    setTotalDuration(Number(marks.reduce((sum, m) => sum + m.duration, 0).toFixed(3)))
+  }, [marks])
+
   /** 拉取字幕模板真实参数（失败时保留内置兜底参数） */
   useEffect(() => {
     let alive = true
@@ -373,6 +455,55 @@ export default function Step3Panel({
   const closePreview = () => {
     setPreviewOpen(false)
     releasePreviewUrls()
+  }
+
+  /** 素材预览：视频播放 / 音频试听（全项目通用入口） */
+  const openMediaPreview = async (kind: 'video' | 'audio', name: string) => {
+    setError(null)
+    setMediaPreview({ open: true, kind, name, url: null, loading: true })
+    try {
+      const url = await stepService.fetchMediaObjectUrl(creationId, kind, name)
+      setMediaPreview((prev) => ({ ...prev, url, loading: false }))
+    } catch (err) {
+      setMediaPreview((prev) => ({ ...prev, loading: false }))
+      setError(
+        err instanceof ApiError
+          ? `${err.message}${err.traceId ? `（traceId: ${err.traceId}）` : ''}`
+          : '加载素材失败',
+      )
+    }
+  }
+
+  const closeMediaPreview = () => {
+    setMediaPreview((prev) => {
+      if (prev.url) URL.revokeObjectURL(prev.url)
+      return { ...prev, open: false, url: null }
+    })
+  }
+
+  /** 单段预览：只播放该标记指定的起止区间 */
+  const openSegmentPreview = async (mark: VideoMarkValues) => {
+    setError(null)
+    setSegmentPreview({ open: true, mark, url: null, loading: true })
+    try {
+      const url = await stepService.fetchMediaObjectUrl(creationId, 'video', mark.source)
+      setSegmentPreview((prev) => ({ ...prev, url, loading: false }))
+    } catch (err) {
+      setSegmentPreview((prev) => ({ ...prev, loading: false }))
+      setError(
+        err instanceof ApiError
+          ? `${err.message}${err.traceId ? `（traceId: ${err.traceId}）` : ''}`
+          : '加载片段失败',
+      )
+    }
+  }
+
+  const closeSegmentPreview = () => {
+    segmentVideoRef.current?.pause()
+    setSegmentPreview((prev) => {
+      if (prev.url) URL.revokeObjectURL(prev.url)
+      return { ...prev, open: false, url: null, mark: null }
+    })
   }
 
   /** 片段推进：按标记顺序切换源视频并定位到 start */
@@ -675,7 +806,19 @@ export default function Step3Panel({
     subtitleSpecs.find((s) => s.name === subtitleStyle) ?? subtitleSpecs[0]
   const previewRatioW = Number(quality.resolution.split('x')[0]) || 9
   const previewRatioH = Number(quality.resolution.split('x')[1]) || 16
-  const previewFrameWidth = (PREVIEW_FRAME_HEIGHT * previewRatioW) / previewRatioH
+  const effectiveAlignment = subtitlePosition.alignment || activeSubtitleSpec.alignment
+  /** 顶部对齐时 MarginV 从顶部计，正负方向与底部相反 */
+  const verticalSign = effectiveAlignment >= 7 ? 1 : -1
+  const isMiddleRow = effectiveAlignment >= 4 && effectiveAlignment <= 6
+
+  /** 字幕位置微调（dx 正数右移，dy 正数下移） */
+  const nudgeSubtitle = (dx: number, dy: number) => {
+    setSubtitlePosition((prev) => ({
+      alignment: prev.alignment,
+      marginH: Math.max(-200, Math.min(200, prev.marginH + dx)),
+      marginV: Math.max(-200, Math.min(200, prev.marginV + dy * verticalSign)),
+    }))
+  }
 
   /** 换源后按新素材时长收敛起点/终点（服务端合成前还会再校验一次） */
   const reassignMarkSource = (mark: VideoMarkValues, source: string): VideoMarkValues => {
@@ -717,6 +860,61 @@ export default function Step3Panel({
     )
   }
 
+  /** 手动指定单段起止时间（自动收敛到素材时长并保证 ≥0.3s） */
+  const updateMarkRange = (id: number, field: 'start' | 'end', value: number | null) => {
+    setMarks((prev) =>
+      prev.map((mark) => {
+        if (mark.id !== id) return mark
+        const total = videoDurationMap.get(mark.source) ?? Math.max(mark.end, mark.start + 1)
+        if (field === 'start') {
+          const start = Math.min(Math.max(0, value ?? 0), Math.max(0, total - 0.3))
+          const end = Math.max(start + 0.3, mark.end)
+          return {
+            ...mark,
+            start: Number(start.toFixed(3)),
+            end: Number(Math.min(end, total).toFixed(3)),
+            duration: Number((Math.min(end, total) - start).toFixed(3)),
+          }
+        }
+        const end = Math.min(Math.max(0.3, value ?? 0), total)
+        const start = Math.min(mark.start, Math.max(0, end - 0.3))
+        return {
+          ...mark,
+          start: Number(start.toFixed(3)),
+          end: Number(end.toFixed(3)),
+          duration: Number((end - start).toFixed(3)),
+        }
+      }),
+    )
+  }
+
+  /** 追加一个片段（默认取首个已勾选素材的前 5 秒） */
+  const addMark = () => {
+    const source = videos.find((v) => v.selected)?.name ?? videos[0]?.name
+    if (!source) {
+      setError('请先导入视频素材')
+      return
+    }
+    const total = videoDurationMap.get(source) ?? 0
+    const end = Math.min(5, total || 5)
+    const nextId = marks.reduce((max, m) => Math.max(max, m.id), 0) + 1
+    setMarks((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        source,
+        start: 0,
+        end: Number(end.toFixed(3)),
+        duration: Number(end.toFixed(3)),
+        muted: true,
+      },
+    ])
+  }
+
+  const removeMark = (id: number) => {
+    setMarks((prev) => prev.filter((m) => m.id !== id))
+  }
+
   const handleRemark = async () => {
     setError(null)
     setRemarking(true)
@@ -752,12 +950,19 @@ export default function Step3Panel({
     try {
       const composeSettings = {
         subtitle_style: subtitleStyle,
+        subtitle_position: {
+          alignment: subtitlePosition.alignment,
+          margin_v: subtitlePosition.marginV,
+          margin_h: subtitlePosition.marginH,
+        },
         global_transition: globalTransition,
         avatar,
         quality,
         bgm: bgm.fileId ? bgm : null,
         intro_outro: introOutro,
       }
+      // 手动编辑的标记先落盘，刷新后仍可恢复
+      await stepService.saveMarkers(creationId, marks).catch(() => undefined)
       await stepService.saveState({
         creationId,
         audioFiles: audios,
@@ -771,6 +976,7 @@ export default function Step3Panel({
         markers: marks,
         resolution: quality.resolution,
         subtitleStyle,
+        subtitlePosition,
         globalTransition,
         avatar,
         quality,
@@ -838,6 +1044,16 @@ export default function Step3Panel({
       render: (v: string) => <Tag color={v === 'system' ? 'purple' : 'cyan'}>{v === 'system' ? 'AI' : '上传'}</Tag>,
     },
     { title: '时长', dataIndex: 'durationStr', width: 70 },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 80,
+      render: (_, record) => (
+        <Button type="link" size="small" onClick={() => void openMediaPreview('audio', record.name)}>
+          试听
+        </Button>
+      ),
+    },
   ]
 
   const videoColumns: ColumnsType<VideoItemValues> = [
@@ -858,6 +1074,16 @@ export default function Step3Panel({
     },
     { title: '视频', dataIndex: 'name', ellipsis: true },
     { title: '时长', dataIndex: 'durationStr', width: 70 },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 80,
+      render: (_, record) => (
+        <Button type="link" size="small" onClick={() => void openMediaPreview('video', record.name)}>
+          预览
+        </Button>
+      ),
+    },
   ]
 
   /** 更新片头/片尾字卡字段 */
@@ -888,8 +1114,40 @@ export default function Step3Panel({
         />
       ),
     },
-    { title: '开始', dataIndex: 'start', width: 80, render: (v: number) => `${v.toFixed(2)}s` },
-    { title: '结束', dataIndex: 'end', width: 80, render: (v: number) => `${v.toFixed(2)}s` },
+    {
+      title: '开始（秒）',
+      dataIndex: 'start',
+      width: 100,
+      render: (v: number, record) => (
+        <InputNumber
+          size="small"
+          min={0}
+          max={videoDurationMap.get(record.source) ?? undefined}
+          step={0.1}
+          precision={2}
+          value={v}
+          style={{ width: '100%' }}
+          onChange={(next) => updateMarkRange(record.id, 'start', next ?? 0)}
+        />
+      ),
+    },
+    {
+      title: '结束（秒）',
+      dataIndex: 'end',
+      width: 100,
+      render: (v: number, record) => (
+        <InputNumber
+          size="small"
+          min={0}
+          max={videoDurationMap.get(record.source) ?? undefined}
+          step={0.1}
+          precision={2}
+          value={v}
+          style={{ width: '100%' }}
+          onChange={(next) => updateMarkRange(record.id, 'end', next ?? 0)}
+        />
+      ),
+    },
     { title: '时长', dataIndex: 'duration', width: 80, render: (v: number) => `${v.toFixed(2)}s` },
     {
       title: '转场（单段覆盖）',
@@ -950,6 +1208,22 @@ export default function Step3Panel({
         </Space>
       ),
     },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 120,
+      fixed: 'right',
+      render: (_, record) => (
+        <Space size={0}>
+          <Button type="link" size="small" onClick={() => void openSegmentPreview(record)}>
+            预览
+          </Button>
+          <Button type="link" size="small" danger onClick={() => removeMark(record.id)}>
+            删除
+          </Button>
+        </Space>
+      ),
+    },
   ]
 
   return (
@@ -962,6 +1236,9 @@ export default function Step3Panel({
         <Row gutter={16}>
         <Col xs={24} lg={12}>
           <Card title="音频素材" extra={<Button onClick={() => void loadMedia()}>刷新</Button>}>
+            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+              第 1 步点击「生成配音并保存」后，合成音频会自动出现在这里，可点「试听」播放。
+            </Typography.Text>
             {loading ? (
               <Spin />
             ) : audios.length === 0 ? (
@@ -1156,6 +1433,51 @@ export default function Step3Panel({
 
       {phase === 'compose' && (
         <>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 20,
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '12px 16px',
+          borderRadius: 8,
+          border: '1px solid #4c1d95',
+          background: 'linear-gradient(90deg, rgba(76,29,149,0.35), rgba(30,27,75,0.35))',
+          backdropFilter: 'blur(6px)',
+        }}
+      >
+        <Typography.Text strong style={{ fontSize: 15 }}>③ 开始合成成片</Typography.Text>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          片段 {marks.length} 个 · 标记 {totalDuration.toFixed(1)}s · 音频 {audioTotal.toFixed(1)}s
+        </Typography.Text>
+        <div style={{ flex: 1 }} />
+        <Button onClick={() => void handlePreview()} disabled={marks.length === 0}>
+          串播预览
+        </Button>
+        <Button onClick={handleRemark} loading={remarking} disabled={videos.length === 0}>
+          重新随机标记
+        </Button>
+        <Button
+          type="primary"
+          size="large"
+          onClick={handleCompose}
+          loading={composing}
+          disabled={marks.length === 0}
+        >
+          开始合成成片
+        </Button>
+      </div>
+      {task && (
+        <Progress
+          percent={task.progress}
+          status={
+            task.status === 'completed' ? 'success' : task.status === 'failed' ? 'exception' : 'active'
+          }
+        />
+      )}
       <Card title="成片观感（转场 / 主持人人像 / 质量）">
         <Row gutter={24}>
           <Col xs={24} lg={10}>
@@ -1201,49 +1523,157 @@ export default function Step3Panel({
               <Divider style={{ margin: 0 }} />
 
               <div>
-                <Typography.Text strong>字幕样式</Typography.Text>
-                <Select
-                  value={subtitleStyle}
-                  style={{ width: '100%', marginTop: 8 }}
-                  onChange={setSubtitleStyle}
-                  options={subtitleSpecs.map((s) => ({ value: s.name, label: s.name }))}
-                />
-                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
-                  <div
-                    style={{
-                      position: 'relative',
-                      height: PREVIEW_FRAME_HEIGHT,
-                      aspectRatio: `${previewRatioW} / ${previewRatioH}`,
-                      maxWidth: '100%',
-                      borderRadius: 6,
-                      overflow: 'hidden',
-                      background: 'linear-gradient(135deg, #232526, #414345)',
-                      border: '1px solid #3a3a3a',
-                    }}
-                  >
-                    <span
-                      style={subtitlePreviewStyle(
-                        activeSubtitleSpec,
-                        PREVIEW_FRAME_HEIGHT,
-                        previewFrameWidth,
-                      )}
-                    >
-                      这是字幕预览效果
-                    </span>
-                  </div>
+                <Typography.Text strong>字幕样式（点击卡片选择）</Typography.Text>
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+                    gap: 8,
+                  }}
+                >
+                  {subtitleSpecs.map((spec) => {
+                    const active = spec.name === subtitleStyle
+                    return (
+                      <button
+                        key={spec.name}
+                        type="button"
+                        title={spec.name}
+                        onClick={() => setSubtitleStyle(spec.name)}
+                        style={{
+                          position: 'relative',
+                          height: 78,
+                          padding: 0,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          background: 'linear-gradient(135deg, #232526, #414345)',
+                          border: active ? '2px solid #7c3aed' : '1px solid #3a3a3a',
+                        }}
+                      >
+                        <span style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+                          <span style={subtitlePreviewStyle(spec, 56)}>字幕预览</span>
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            lineHeight: '18px',
+                            color: '#e5e7eb',
+                            background: 'rgba(0,0,0,0.55)',
+                            padding: '0 4px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {spec.name}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
+
+                <Divider style={{ margin: '12px 0 10px' }} />
+
+                <Typography.Text strong>字幕位置</Typography.Text>
+                <Row gutter={16} align="middle" style={{ marginTop: 8 }}>
+                  <Col>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 30px)', gap: 4 }}>
+                      {ALIGN_CELLS.map((cell) => (
+                        <Button
+                          key={cell.value}
+                          size="small"
+                          title={cell.title}
+                          type={effectiveAlignment === cell.value ? 'primary' : 'default'}
+                          style={{ width: 30, padding: 0 }}
+                          onClick={() =>
+                            setSubtitlePosition((prev) => ({ ...prev, alignment: cell.value }))
+                          }
+                        >
+                          {cell.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </Col>
+                  <Col>
+                    <Space direction="vertical" size={4}>
+                      <Button
+                        size="small"
+                        block
+                        onClick={() => nudgeSubtitle(0, -10)}
+                        disabled={isMiddleRow}
+                      >
+                        ↑ 上移
+                      </Button>
+                      <Space size={4}>
+                        <Button size="small" onClick={() => nudgeSubtitle(-10, 0)}>
+                          ← 左移
+                        </Button>
+                        <Button size="small" onClick={() => nudgeSubtitle(10, 0)}>
+                          右移 →
+                        </Button>
+                      </Space>
+                      <Button
+                        size="small"
+                        block
+                        onClick={() => nudgeSubtitle(0, 10)}
+                        disabled={isMiddleRow}
+                      >
+                        ↓ 下移
+                      </Button>
+                    </Space>
+                  </Col>
+                  <Col flex="auto">
+                    <div
+                      style={{
+                        position: 'relative',
+                        height: PREVIEW_FRAME_HEIGHT,
+                        aspectRatio: `${previewRatioW} / ${previewRatioH}`,
+                        marginLeft: 'auto',
+                        borderRadius: 6,
+                        overflow: 'hidden',
+                        background: 'linear-gradient(135deg, #232526, #414345)',
+                        border: '1px solid #3a3a3a',
+                      }}
+                    >
+                      <span
+                        style={subtitlePreviewStyle(
+                          activeSubtitleSpec,
+                          PREVIEW_FRAME_HEIGHT,
+                          subtitlePosition,
+                        )}
+                      >
+                        这是字幕预览效果
+                      </span>
+                    </div>
+                  </Col>
+                </Row>
+
+                <Space wrap size={8} style={{ marginTop: 10 }}>
+                  <Tag color="blue">
+                    {subtitlePosition.alignment === 0
+                      ? '对齐：跟随样式'
+                      : `对齐：${ALIGN_CELLS.find((c) => c.value === effectiveAlignment)?.title ?? effectiveAlignment}`}
+                  </Tag>
+                  <Tag>水平偏移 {subtitlePosition.marginH}</Tag>
+                  <Tag>垂直偏移 {subtitlePosition.marginV}</Tag>
+                  <Button
+                    size="small"
+                    onClick={() => setSubtitlePosition({ alignment: 0, marginV: 0, marginH: 0 })}
+                  >
+                    恢复默认
+                  </Button>
+                </Space>
+                {isMiddleRow && (
+                  <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+                    居中对齐时 libass 会忽略垂直边距，如需上下移动请选择顶部或底部对齐。
+                  </Typography.Text>
+                )}
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
-                  换算：FontSize {activeSubtitleSpec.fontSize} → 预览{' '}
-                  {Math.round((activeSubtitleSpec.fontSize * PREVIEW_FRAME_HEIGHT) / ASS_PLAY_RES_Y)}px；
-                  MarginV {activeSubtitleSpec.marginV} →{' '}
-                  {Math.round((activeSubtitleSpec.marginV * PREVIEW_FRAME_HEIGHT) / ASS_PLAY_RES_Y)}px；
-                  对齐 {activeSubtitleSpec.alignment}
-                </Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  按 libass PlayResY=288 等比换算（左右边距按 PlayResX=384 的 MarginL/R=10 换算）。
-                  实测已知偏差：底条样式的字高与底距误差 0%，描边样式位置误差 ≤3.4%；
-                  中文墨迹高度比 em-box 小约 26%，超大字号会自动换行（预览与烧录一致）。
-                  最终以 ffmpeg 烧录结果为准。
+                  预览按 libass PlayResY=288 等比换算；位置微调会写入烧录参数（Alignment /
+                  MarginV / MarginL / MarginR），最终以 ffmpeg 烧录结果为准。
                 </Typography.Text>
               </div>
 
@@ -1698,6 +2128,9 @@ export default function Step3Panel({
         title="视频切片标记"
         extra={
           <Space>
+            <Button onClick={addMark} disabled={videos.length === 0}>
+              新增片段
+            </Button>
             <Button onClick={handleDistributeMarkSources} disabled={marks.length === 0}>
               按段轮换素材
             </Button>
@@ -1709,7 +2142,7 @@ export default function Step3Panel({
             </Button>
             {phase === 'compose' ? (
               <Button type="primary" onClick={handleCompose} loading={composing} disabled={marks.length === 0}>
-                一键合成
+                开始合成成片
               </Button>
             ) : (
               <Button type="primary" onClick={onNext} disabled={marks.length === 0}>
@@ -1746,6 +2179,7 @@ export default function Step3Panel({
               columns={markColumns}
               dataSource={marks}
               pagination={{ pageSize: 10, size: 'small' }}
+              scroll={{ x: 980 }}
             />
           )}
 
@@ -1842,6 +2276,84 @@ export default function Step3Panel({
               {previewAudioUrl ? <Tag color="green">音频同步</Tag> : <Tag>无音频</Tag>}
             </Space>
           </>
+        )}
+      </Modal>
+
+      <Modal
+        title={
+          mediaPreview.kind === 'video'
+            ? `视频预览 · ${mediaPreview.name}`
+            : `音频试听 · ${mediaPreview.name}`
+        }
+        open={mediaPreview.open}
+        onCancel={closeMediaPreview}
+        footer={null}
+        width={mediaPreview.kind === 'video' ? 720 : 480}
+        destroyOnClose
+      >
+        {mediaPreview.loading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Spin />
+            <div style={{ marginTop: 8 }}>加载素材…</div>
+          </div>
+        ) : mediaPreview.url ? (
+          mediaPreview.kind === 'video' ? (
+            <video
+              src={mediaPreview.url}
+              controls
+              autoPlay
+              style={{ width: '100%', maxHeight: 460, background: '#000' }}
+            />
+          ) : (
+            <audio src={mediaPreview.url} controls autoPlay style={{ width: '100%' }} />
+          )
+        ) : (
+          <Empty description="素材加载失败" />
+        )}
+      </Modal>
+
+      <Modal
+        title={`单段预览 · ${segmentPreview.mark?.source ?? ''}`}
+        open={segmentPreview.open}
+        onCancel={closeSegmentPreview}
+        footer={null}
+        width={720}
+        destroyOnClose
+      >
+        {segmentPreview.loading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Spin />
+            <div style={{ marginTop: 8 }}>加载素材…</div>
+          </div>
+        ) : segmentPreview.url && segmentPreview.mark ? (
+          <>
+            <video
+              ref={segmentVideoRef}
+              src={segmentPreview.url}
+              controls
+              autoPlay
+              onLoadedMetadata={(e) => {
+                e.currentTarget.currentTime = segmentPreview.mark?.start ?? 0
+              }}
+              onTimeUpdate={(e) => {
+                const end = segmentPreview.mark?.end ?? 0
+                if (end > 0 && e.currentTarget.currentTime >= end) {
+                  e.currentTarget.pause()
+                }
+              }}
+              style={{ width: '100%', maxHeight: 420, background: '#000' }}
+            />
+            <Space style={{ marginTop: 12 }} wrap>
+              <Tag color="blue">起 {segmentPreview.mark.start.toFixed(2)}s</Tag>
+              <Tag color="blue">止 {segmentPreview.mark.end.toFixed(2)}s</Tag>
+              <Tag>时长 {segmentPreview.mark.duration.toFixed(2)}s</Tag>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                播放到「止」会自动暂停，可在标记表里直接修改起止时间。
+              </Typography.Text>
+            </Space>
+          </>
+        ) : (
+          <Empty description="素材加载失败" />
         )}
       </Modal>
     </Space>

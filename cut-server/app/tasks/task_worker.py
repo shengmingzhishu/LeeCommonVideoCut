@@ -124,6 +124,7 @@ async def handle_compose(ctx: TaskContext) -> dict[str, Any]:
     markers: list[dict[str, Any]] = payload.get("markers", [])
     resolution = payload.get("resolution", "1080x1920")
     subtitle_style = payload.get("subtitle_style", "默认白字黑描边")
+    subtitle_position = payload.get("subtitle_position") or None
     fast_mode = payload.get("fast_mode", False)
     global_transition = payload.get("global_transition") or {"type": "none", "duration": 0.5}
     avatar = payload.get("avatar") or None
@@ -305,6 +306,7 @@ async def handle_compose(ctx: TaskContext) -> dict[str, Any]:
             final_path,
             srt_file=srt_path,
             style=subtitle_style,
+            subtitle_position=subtitle_position,
             avatar_path=avatar_path,
             avatar=avatar,
             crf=crf,
@@ -316,6 +318,7 @@ async def handle_compose(ctx: TaskContext) -> dict[str, Any]:
             try:
                 FFmpegManager.finalize_video(
                     with_audio, final_path, srt_file=srt_path, style=subtitle_style,
+                    subtitle_position=subtitle_position,
                     crf=crf, preset=preset,
                 )
             except Exception as e2:

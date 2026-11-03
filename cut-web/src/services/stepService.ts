@@ -152,6 +152,13 @@ export interface SubtitleStyleSpecValues {
   backColour: string
 }
 
+/** 字幕位置微调（0=跟随样式；1~9 对应 ASS 九宫格） */
+export interface SubtitlePositionValues {
+  alignment: number
+  marginV: number
+  marginH: number
+}
+
 /** Step3 素材列表 */
 export interface MediaListValues {
   systemAudios: AudioItemValues[]
@@ -385,6 +392,54 @@ export const stepService = {
     }
   },
 
+  /** Step3：读取已保存的标记（刷新后恢复手动指定）。 */
+  getMarkers: async (
+    creationId: string,
+  ): Promise<{ markers: VideoMarkValues[]; totalDuration: number; videoFiles: VideoItemValues[] }> => {
+    const res = await request.get<
+      never,
+      ApiResponse<{ markers?: components['schemas']['VideoMark'][]; total_duration?: number; video_files?: components['schemas']['VideoItem'][] }>
+    >('/step3/markers', { params: { creation_id: creationId } })
+    const d = res.data
+    return {
+      markers: (d?.markers ?? []).map(toVideoMark),
+      totalDuration: d?.total_duration ?? 0,
+      videoFiles: (d?.video_files ?? []).map(toVideoItem),
+    }
+  },
+
+  /** Step3：保存手动编辑后的标记（刷新后仍可恢复）。 */
+  saveMarkers: async (
+    creationId: string,
+    markers: VideoMarkValues[],
+  ): Promise<{ markers: VideoMarkValues[]; totalDuration: number }> => {
+    const res = await request.post<
+      never,
+      ApiResponse<{ markers?: components['schemas']['VideoMark'][]; total_duration?: number }>
+    >('/step3/markers', {
+      creation_id: creationId,
+      markers: markers.map((m) => ({
+        id: m.id,
+        source: m.source,
+        start: m.start,
+        end: m.end,
+        duration: m.duration,
+        muted: m.muted,
+        transition: m.transition
+          ? {
+              type: m.transition.type,
+              duration: m.transition.duration,
+            }
+          : null,
+      })),
+    })
+    const d = res.data
+    return {
+      markers: (d?.markers ?? []).map(toVideoMark),
+      totalDuration: d?.total_duration ?? 0,
+    }
+  },
+
   /** Step3：重新随机标记。 */
   remark: async (params: {
     creationId: string
@@ -446,6 +501,7 @@ export const stepService = {
     fastMode?: boolean
     resolution?: string
     subtitleStyle?: string
+    subtitlePosition?: SubtitlePositionValues
     globalTransition?: TransitionConfigValues
     avatar?: AvatarConfigValues | null
     quality?: QualityConfigValues
@@ -461,6 +517,13 @@ export const stepService = {
         fast_mode: params.fastMode ?? false,
         resolution: params.resolution ?? '1080x1920',
         subtitle_style: params.subtitleStyle ?? '默认白字黑描边',
+        subtitle_position: params.subtitlePosition
+          ? {
+              alignment: params.subtitlePosition.alignment,
+              margin_v: params.subtitlePosition.marginV,
+              margin_h: params.subtitlePosition.marginH,
+            }
+          : undefined,
         global_transition: params.globalTransition
           ? { type: params.globalTransition.type, duration: params.globalTransition.duration }
           : undefined,

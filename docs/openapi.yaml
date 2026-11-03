@@ -624,6 +624,15 @@ components:
           type: array
           items: { type: string }
 
+    Step3SaveMarkersRequest:
+      type: object
+      required: [creation_id]
+      properties:
+        creation_id: { type: string }
+        markers:
+          type: array
+          items: { $ref: '#/components/schemas/VideoMark' }
+
     Step3RemarkRequest:
       type: object
       required: [creation_id]
@@ -711,6 +720,14 @@ components:
         outline_colour: { type: string, description: ASS 描边色 }
         back_colour: { type: string, description: ASS 底框色 }
 
+    SubtitlePosition:
+      type: object
+      description: 字幕位置微调（相对样式预设的偏移，单位为 ASS PlayRes 像素）
+      properties:
+        alignment: { type: integer, default: 0, minimum: 0, maximum: 9, description: "0=跟随样式；1~9 对应 ASS 九宫格" }
+        margin_v: { type: integer, default: 0, minimum: -200, maximum: 200, description: 垂直偏移 }
+        margin_h: { type: integer, default: 0, minimum: -200, maximum: 200, description: 水平偏移（正数向右） }
+
     Step3ComposeRequest:
       type: object
       required: [creation_id]
@@ -726,6 +743,7 @@ components:
         fast_mode: { type: boolean, default: false, description: true=单条 ffmpeg concat filter }
         resolution: { type: string, default: "1080x1920" }
         subtitle_style: { type: string, default: 默认白字黑描边 }
+        subtitle_position: { $ref: '#/components/schemas/SubtitlePosition' }
         global_transition: { $ref: '#/components/schemas/TransitionConfig' }
         avatar: { $ref: '#/components/schemas/AvatarConfig' }
         quality: { $ref: '#/components/schemas/QualityConfig' }
@@ -1615,6 +1633,66 @@ paths:
               schema: { type: string, format: binary }
         '404':
           description: 文件不存在
+
+  /api/step3/markers:
+    get:
+      tags: [Step3]
+      summary: 读取已保存的视频标记（刷新后恢复手动指定）
+      parameters:
+        - name: creation_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 返回标记列表、总时长与素材时长
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          markers:
+                            type: array
+                            items: { $ref: '#/components/schemas/VideoMark' }
+                          total_duration: { type: number }
+                          video_files:
+                            type: array
+                            items: { $ref: '#/components/schemas/VideoItem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Step3]
+      summary: 保存手动编辑后的视频标记
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Step3SaveMarkersRequest' }
+      responses:
+        '200':
+          description: 返回保存后的标记列表、总时长与素材时长
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          markers:
+                            type: array
+                            items: { $ref: '#/components/schemas/VideoMark' }
+                          total_duration: { type: number }
+                          video_files:
+                            type: array
+                            items: { $ref: '#/components/schemas/VideoItem' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/step3/remark:
     post:

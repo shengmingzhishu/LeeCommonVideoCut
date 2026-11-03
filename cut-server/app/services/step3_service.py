@@ -199,6 +199,40 @@ class Step3Service:
 
     # ---------- 随机标记 ----------
 
+    def markers(self, *, creation: Creation) -> dict[str, Any]:
+        """读取已保存的视频标记与素材时长（刷新后恢复手动指定）
+
+        Returns:
+            {markers, total_duration, video_files}
+        """
+        project = self._get_project(creation)
+        vm = VideoMarkerManager(creation.id)
+        marks = vm.load_marks()
+        videos = vm.scan(project.video_dir or "")
+        total = round(sum(float(m.get("duration") or 0) for m in marks), 3)
+        return {"markers": marks, "total_duration": total, "video_files": videos}
+
+    def save_markers(self, *, creation: Creation, marks: list[dict[str, Any]]) -> dict[str, Any]:
+        """保存手动编辑后的视频标记（刷新后仍可恢复）
+
+        Args:
+            creation: 创作实例
+            marks: 前端提交的标记列表（含 start / end / duration）
+
+        Returns:
+            {markers, total_duration, video_files}
+        """
+        project = self._get_project(creation)
+        vm = VideoMarkerManager(creation.id)
+        vm.save_marks(marks)
+        videos = vm.scan(project.video_dir or "")
+        total = round(sum(float(m.get("duration") or 0) for m in marks), 3)
+        logger.info(
+            "Step3 手动标记已保存",
+            extra={"creation_id": creation.id, "marker_count": len(marks)},
+        )
+        return {"markers": marks, "total_duration": total, "video_files": videos}
+
     def remark(
         self,
         *,
@@ -310,6 +344,7 @@ class Step3Service:
         fast_mode: bool,
         resolution: str,
         subtitle_style: str,
+        subtitle_position: dict[str, Any] | None = None,
         global_transition: dict[str, Any] | None = None,
         avatar: dict[str, Any] | None = None,
         quality: dict[str, Any] | None = None,
@@ -348,6 +383,7 @@ class Step3Service:
                 "markers": markers,
                 "resolution": resolution,
                 "subtitle_style": subtitle_style,
+                "subtitle_position": subtitle_position,
                 "fast_mode": fast_mode,
                 "global_transition": global_transition or {"type": "none", "duration": 0.5},
                 "avatar": avatar,

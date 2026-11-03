@@ -83,6 +83,8 @@ export default function CreationWizardPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [autoRunning, setAutoRunning] = useState(false)
   const [autoStage, setAutoStage] = useState('')
+  /** 素材刷新令牌：TTS 产物就绪后驱动素材区重新加载 */
+  const [mediaRefreshToken, setMediaRefreshToken] = useState(0)
   /** 历史版本（依赖 projectId，旧链接未带时可隐藏入口） */
   const projectId = searchParams.get('projectId') ?? ''
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -580,7 +582,11 @@ export default function CreationWizardPage() {
               onOutlineReady={handleOutlineReady}
             />
             {savedOutline ? (
-              <Step2Panel creationId={creationId} onSaved={handleStep2Saved} />
+              <Step2Panel
+                creationId={creationId}
+                onSaved={handleStep2Saved}
+                onMediaUpdated={() => setMediaRefreshToken((v) => v + 1)}
+              />
             ) : (
               <Alert
                 type="info"
@@ -594,6 +600,7 @@ export default function CreationWizardPage() {
         <Step3Panel
           creationId={creationId}
           phase={currentStep === 0 ? 'materials' : currentStep === 1 ? 'edit' : 'compose'}
+          refreshToken={mediaRefreshToken}
           onComposed={handleComposed}
           onNext={handleReadyToCompose}
         />

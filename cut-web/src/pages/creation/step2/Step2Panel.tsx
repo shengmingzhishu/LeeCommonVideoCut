@@ -17,10 +17,11 @@ import {
   Switch,
   Tag,
   Typography,
+  message,
 } from 'antd'
 
 import { ApiError } from '@/services/request'
-import { stepService } from '@/services/stepService'
+import { stepService, type AudioItemValues } from '@/services/stepService'
 import { taskService, type TaskInfo } from '@/services/taskService'
 import {
   DEFAULT_TTS_CONFIG,
@@ -33,6 +34,8 @@ interface Step2PanelProps {
   creationId: string
   /** 保存成功回调（携带新的 currentStep） */
   onSaved: (currentStep: number) => void
+  /** 配音产物就绪，通知素材区刷新 */
+  onMediaUpdated?: () => void
 }
 
 /** 从正文拆分段落（与后端 `\n+` 规则一致） */
@@ -40,8 +43,8 @@ function splitParagraphs(text: string): string[] {
   return text.split(/\n+/).map((s) => s.trim()).filter(Boolean)
 }
 
-/** Step2 口播长文：AI 生成 + 编辑 + 多音色配音（试听 / 全局音色 / 按段落覆盖） */
-export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
+/** 第二步：口播长文 → 配音设置 → 生成配音（三个分区，主操作始终可见） */
+export default function Step2Panel({ creationId, onSaved, onMediaUpdated }: Step2PanelProps) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [wordCount, setWordCount] = useState(0)
@@ -57,6 +60,12 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
   const [segmentVoices, setSegmentVoices] = useState<Record<number, string | null>>({})
   const [previewing, setPreviewing] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  // 已生成的配音（第一步素材区可视化试听）
+  const [systemAudios, setSystemAudios] = useState<AudioItemValues[]>([])
+  const [pickedAudio, setPickedAudio] = useState<string | undefined>(undefined)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [audioLoading, setAudioLoading] = useState(false)
 
   // 加载音色目录
   useEffect(() => {
@@ -108,6 +117,13 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
     }
   }, [previewUrl])
 
+  // 释放配音结果 blob URL
+  useEffect(() => {
+    return () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl)
+    }
+  }, [audioUrl])
+
   const updateConfig = (patch: Partial<TTSConfigValues>) => {
     setTtsConfig((prev) => ({ ...prev, ...patch }))
   }
@@ -130,6 +146,44 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
       setPreviewing(false)
     }
   }
+
+  const loadAudioUrl = async (path: string) => {
+    setAudioLoading(true)
+    try {
+      const url = await stepService.fetchMediaObjectUrl(creationId, 'audio', path)
+      setAudioUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return url
+      })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '加载配音失败')
+    } finally {
+      setAudioLoading(false)
+    }
+  }
+
+  /** 拉取配音产物列表（进入页面与 TTS 完成后调用），默认选中最新的一个 */
+  const loadSystemAudios = async (preferName?: string) => {
+    try {
+      const list = await stepService.getMediaList(creationId)
+      const audios = list.systemAudios
+      setSystemAudios(audios)
+      if (audios.length === 0) return
+      const matched = preferName
+        ? audios.find((a) => a.name.includes(preferName.slice(0, 12)))
+        : undefined
+      const pick = matched ?? audios[audios.length - 1]
+      setPickedAudio(pick.path)
+      void loadAudioUrl(pick.path)
+    } catch {
+      // 素材列表不可用时不影响编辑
+    }
+  }
+
+  useEffect(() => {
+    void loadSystemAudios()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creationId])
 
   const handleGenerate = async () => {
     setError(null)
@@ -180,13 +234,18 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
         skipTts,
         ttsConfig: buildTtsConfig(),
       })
-      onSaved(result.currentStep)
-      if (result.ttsTaskId) {
+      if (result.ttsTaskId && !skipTts) {
+        // 配音完成后才进入下一步，确保第一步能看到并试听音频
         const task = await taskService.poll(result.ttsTaskId, setTtsTask)
         if (task.status === 'failed') {
           setError(`TTS 合成失败：${task.error ?? '未知错误'}`)
+          return
         }
+        await loadSystemAudios(title)
+        onMediaUpdated?.()
+        message.success('配音已生成，可在右侧试听')
       }
+      onSaved(result.currentStep)
     } catch (err) {
       setError(err instanceof ApiError ? `${err.message}${err.traceId ? `（traceId: ${err.traceId}）` : ''}` : '保存失败')
     } finally {
@@ -208,11 +267,10 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
     <Row gutter={16}>
       <Col xs={24} lg={16}>
         <Card
-          title="口播长文"
+          title="① 口播长文"
           extra={
             <Space>
-              <Button onClick={handleGenerate} loading={generating}>重新生成</Button>
-              <Button type="primary" onClick={handleSave} loading={saving}>保存并进入下一步</Button>
+              <Button onClick={handleGenerate} loading={generating}>AI 生成 / 重新生成</Button>
             </Space>
           }
         >
@@ -245,7 +303,7 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
           )}
         </Card>
 
-        <Card title="配音音色与节奏" style={{ marginTop: 16 }} extra={<Tag color="blue">{ttsConfig.provider}</Tag>}>
+        <Card title="② 配音设置（音色 / 节奏 / 分段）" style={{ marginTop: 16 }} extra={<Tag color="blue">{ttsConfig.provider}</Tag>}>
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             <div>
               <Typography.Text strong>全局音色</Typography.Text>
@@ -332,17 +390,39 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
       </Col>
 
       <Col xs={24} lg={8}>
-        <Card title="状态">
+        <Card
+          title="③ 生成配音并保存"
+          style={{ position: 'sticky', top: 8, borderColor: '#1677ff' }}
+        >
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Statistic title="字数" value={wordCount} suffix="字" />
-            <Statistic title="预估时长" value={Math.round((wordCount / 3.5) * 10) / 10} suffix="秒" />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              编辑好口播长文、选好音色后，点击下方按钮生成配音；配音完成后会出现在第一步素材区。
+            </Typography.Text>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Statistic title="字数" value={wordCount} suffix="字" />
+              </Col>
+              <Col span={12}>
+                <Statistic title="预估时长" value={Math.round((wordCount / 3.5) * 10) / 10} suffix="秒" />
+              </Col>
+            </Row>
             <div>
               <Typography.Text strong>跳过自动 TTS</Typography.Text>
               <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-                开启后可在下一步手动上传录音
+                开启后可手动上传录音
               </Typography.Paragraph>
               <Switch checked={skipTts} onChange={setSkipTts} />
             </div>
+            <Button
+              type="primary"
+              size="large"
+              block
+              onClick={handleSave}
+              loading={saving}
+              disabled={!content.trim()}
+            >
+              {skipTts ? '保存并进入下一步' : '生成配音并保存'}
+            </Button>
             {ttsTask && (
               <div>
                 <Typography.Text strong>TTS 任务</Typography.Text>
@@ -376,6 +456,40 @@ export default function Step2Panel({ creationId, onSaved }: Step2PanelProps) {
                 )}
               </div>
             )}
+
+            <Divider style={{ margin: 0 }} />
+            <div>
+              <Typography.Text strong>已生成的配音</Typography.Text>
+              {systemAudios.length === 0 ? (
+                <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 6 }}>
+                  还没有配音产物，点击上方按钮生成。
+                </Typography.Paragraph>
+              ) : (
+                <>
+                  <Select
+                    value={pickedAudio}
+                    options={systemAudios.map((a) => ({
+                      value: a.path,
+                      label: `${a.name}（${a.duration.toFixed(1)}s）`,
+                    }))}
+                    onChange={(path) => {
+                      setPickedAudio(path)
+                      void loadAudioUrl(path)
+                    }}
+                    style={{ width: '100%', marginTop: 8, marginBottom: 8 }}
+                  />
+                  <Spin spinning={audioLoading}>
+                    {audioUrl ? (
+                      <audio controls src={audioUrl} style={{ width: '100%' }} />
+                    ) : (
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        选择音频后可在此试听
+                      </Typography.Text>
+                    )}
+                  </Spin>
+                </>
+              )}
+            </div>
           </Space>
         </Card>
       </Col>

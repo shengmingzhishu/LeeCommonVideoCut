@@ -453,6 +453,13 @@ class Step3RemarkResponse(BaseModel):
     markers: list[VideoMark] = Field(default_factory=list)
 
 
+class Step3SaveMarkersRequest(BaseModel):
+    """手动编辑后的标记保存请求"""
+
+    creation_id: str
+    markers: list[VideoMark] = Field(default_factory=list)
+
+
 class Step3SaveStateRequest(BaseModel):
     creation_id: str
     audio_files: list[AudioItem] = Field(default_factory=list)
@@ -466,6 +473,14 @@ class Step3SaveStateResponse(BaseModel):
     current_step: int
 
 
+class SubtitlePosition(BaseModel):
+    """字幕位置微调（相对样式的偏移，单位为 ASS PlayRes 像素）"""
+
+    alignment: int = Field(default=0, ge=0, le=9, description="0=跟随样式；1~9 对应 ASS 九宫格")
+    margin_v: int = Field(default=0, ge=-200, le=200, description="垂直偏移（正数向下/向画面中心）")
+    margin_h: int = Field(default=0, ge=-200, le=200, description="水平偏移（正数向右）")
+
+
 class Step3ComposeRequest(BaseModel):
     creation_id: str
     audio_files: list[str] = Field(default_factory=list)
@@ -473,6 +488,7 @@ class Step3ComposeRequest(BaseModel):
     fast_mode: bool = False
     resolution: str = Field(default="1080x1920", pattern=r"^\d+x\d+$")
     subtitle_style: str = Field(default="默认白字黑描边", max_length=32)
+    subtitle_position: SubtitlePosition | None = None
     global_transition: TransitionConfig = Field(default_factory=TransitionConfig)
     avatar: AvatarConfig | None = None
     quality: QualityConfig | None = None

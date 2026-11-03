@@ -713,12 +713,67 @@ class FFmpegManager:
         return str(path.resolve()).replace("\\", "/").replace(":", r"\:")
 
     @staticmethod
+    def apply_subtitle_position(force_style: str, position: dict[str, object] | None) -> str:
+        """把位置微调（九宫格 / 垂直偏移 / 水平偏移）叠加到 force_style
+
+        Args:
+            force_style: 样式预设字符串，如 ``FontSize=18,MarginV=40,Alignment=2``
+            position: ``{alignment, margin_v, margin_h}``，空值表示跟随样式
+
+        Returns:
+            叠加后的 force_style；无法解析时原样返回
+        """
+        if not position:
+            return force_style
+        tokens: dict[str, str] = {}
+        order: list[str] = []
+        for part in force_style.split(","):
+            key, _, value = part.partition("=")
+            key = key.strip()
+            if not key:
+                continue
+            if key not in tokens:
+                order.append(key)
+            tokens[key] = value.strip()
+
+        alignment = int(position.get("alignment") or 0)
+        if alignment:
+            tokens["Alignment"] = str(alignment)
+            if "Alignment" not in order:
+                order.append("Alignment")
+        effective = alignment or int(tokens.get("Alignment") or 2)
+
+        margin_v = int(position.get("margin_v") or 0)
+        if margin_v:
+            base_v = int(tokens.get("MarginV") or 40)
+            tokens["MarginV"] = str(max(0, min(288, base_v + margin_v)))
+
+        margin_h = int(position.get("margin_h") or 0)
+        if margin_h:
+            base_l = int(tokens.get("MarginL") or 10)
+            base_r = int(tokens.get("MarginR") or 10)
+            column = (effective - 1) % 3  # 0=左 1=中 2=右
+            if column == 0:
+                tokens["MarginL"] = str(max(0, base_l + margin_h))
+            elif column == 2:
+                tokens["MarginR"] = str(max(0, base_r - margin_h))
+            else:
+                tokens["MarginL"] = str(max(0, base_l + margin_h * 2))
+                tokens["MarginR"] = str(max(0, base_r - margin_h * 2))
+            for key in ("MarginL", "MarginR"):
+                if key not in order:
+                    order.append(key)
+
+        return ",".join(f"{key}={tokens[key]}" for key in order)
+
+    @staticmethod
     def finalize_video(
         video: Path,
         output: Path,
         *,
         srt_file: Path | None = None,
         style: str = "默认白字黑描边",
+        subtitle_position: dict[str, object] | None = None,
         avatar_path: Path | None = None,
         avatar: dict[str, object] | None = None,
         crf: int = 23,
@@ -745,7 +800,10 @@ class FFmpegManager:
 
         if srt_file:
             escaped_srt = str(srt_file.resolve()).replace("\\", "/").replace(":", r"\:")
-            force_style = SUBTITLE_STYLES.get(style, SUBTITLE_STYLES["默认白字黑描边"])
+            force_style = FFmpegManager.apply_subtitle_position(
+                SUBTITLE_STYLES.get(style, SUBTITLE_STYLES["默认白字黑描边"]),
+                subtitle_position,
+            )
             filters.append(
                 f"[0:v]subtitles='{escaped_srt}':force_style='{force_style}'[sub]"
             )
