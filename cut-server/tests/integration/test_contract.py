@@ -12,7 +12,9 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import bindparam, text
 
+from app.core.database import SessionLocal
 from app.main import app
 
 client = TestClient(app)
@@ -20,6 +22,61 @@ client = TestClient(app)
 TS = int(time.time())
 USERNAME = f"contract_{TS}"
 PASSWORD = "test123456"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_test_users():
+    """用例结束后清除本模块创建的账号，避免污染管理后台用户列表。"""
+    yield
+    with SessionLocal() as db:
+        ids = [
+            row[0]
+            for row in db.execute(
+                text(
+                    "SELECT id FROM users "
+                    "WHERE username LIKE 'contract_%' OR username LIKE 'other_%'"
+                )
+            )
+        ]
+        if not ids:
+            return
+
+        def run(sql: str, params: dict) -> None:
+            db.execute(
+                text(sql).bindparams(bindparam("ids", expanding=True)), params
+            )
+
+        creation_ids = [
+            row[0]
+            for row in db.execute(
+                text(
+                    "SELECT id FROM creations WHERE user_id IN :ids"
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": ids},
+            )
+        ]
+        if creation_ids:
+            for table in ("outputs", "generation_history", "step_results"):
+                db.execute(
+                    text(
+                        f"DELETE FROM {table} WHERE creation_id IN :ids"
+                    ).bindparams(bindparam("ids", expanding=True)),
+                    {"ids": creation_ids},
+                )
+        for table in (
+            "creations",
+            "episodes",
+            "projects",
+            "tasks",
+            "files",
+            "memberships",
+            "usage_records",
+            "audit_logs",
+        ):
+            column = "admin_user_id" if table == "audit_logs" else "user_id"
+            run(f"DELETE FROM {table} WHERE {column} IN :ids", {"ids": ids})
+        run("DELETE FROM users WHERE id IN :ids", {"ids": ids})
+        db.commit()
 
 
 @pytest.fixture(scope="module")
