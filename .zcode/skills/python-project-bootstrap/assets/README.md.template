@@ -1,0 +1,19 @@
+# {{ project_name }}
+
+## 注意
+
+- src目录下的<package_name>是snake_case，方便识别和导入，不是项目名称的kebab-case或PascalCase形式
+- 编码前读取GET_STARTED.md文件
+- 部署前会通过`source <项目绝对路径>\resources\.env.${AIENV}`命令加载配置文件，请按环境配置好生产和测试的相关配置
+
+## 代码结构
+
+```text
+{{ 填充项目目录结构 }}
+```
+
+## 快速开始
+
+```bash
+python -m src.{{ package_name }}.main
+```

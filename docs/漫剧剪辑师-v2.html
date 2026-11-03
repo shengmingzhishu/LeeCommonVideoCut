@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漫剧剪辑师 · 设计文档 v2</title>
+<style>
+:root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #21252f;
+    --surface-3: #2a2f3d;
+    --border: #2d3142;
+    --border-light: #3a3f52;
+    --text: #e4e7ec;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --primary: #7c3aed;
+    --primary-hover: #8b5cf6;
+    --primary-dim: #6d28d9;
+    --accent: #D85A30;
+    --accent-hover: #e96a3f;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --info: #3b82f6;
+    --radius-card: 12px;
+    --radius-btn: 8px;
+    --radius-input: 8px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.4);
+    --transition: 0.2s ease;
+    --doc-text: #1a1a2e;
+    --doc-text-light: #4b5563;
+    --doc-text-muted: #6b7280;
+    --doc-bg: #ffffff;
+    --doc-bg-soft: #f9fafb;
+    --doc-border: #e5e7eb;
+    --doc-primary: #4f46e5;
+    --sp-xs: 8px;
+    --sp-sm: 16px;
+    --sp-md: 24px;
+    --sp-lg: 40px;
+    --sp-xl: 64px;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    margin: 0;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    line-height: 1.7;
+}
+a { color: var(--doc-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: var(--doc-bg-soft); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em; color: #be185d; }
+table { width: 100%; border-collapse: collapse; margin: var(--sp-sm) 0; }
+th, td { padding: 10px 14px; border: 1px solid var(--doc-border); text-align: left; vertical-align: middle; }
+th { background: var(--doc-bg-soft); font-weight: 600; }
+#doc-nav { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; overflow-y: auto; padding: var(--sp-md) var(--sp-sm); background: var(--doc-bg-soft); border-right: 1px solid var(--doc-border); }
+#doc-nav .nav-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+#doc-nav .nav-subtitle { font-size: 12px; color: var(--doc-text-muted); margin-bottom: var(--sp-md); }
+#doc-nav a { display: block; padding: 8px 12px; color: var(--doc-text-light); border-radius: 6px; font-size: 14px; transition: var(--transition); }
+#doc-nav a:hover { background: rgba(79, 70, 229, 0.08); color: var(--doc-primary); text-decoration: none; }
+#doc-main { margin-left: 240px; padding: var(--sp-lg) 48px var(--sp-xl); max-width: 1200px; }
+@media (max-width: 768px) { #doc-nav { display: none; } #doc-main { margin-left: 0; padding: var(--sp-md) var(--sp-sm); } }
+section { margin-bottom: var(--sp-xl); }
+h1 { font-size: 32px; margin: 0 0 var(--sp-sm) 0; }
+h2 { font-size: 24px; margin: var(--sp-lg) 0 var(--sp-md); padding-bottom: var(--sp-xs); border-bottom: 2px solid var(--doc-border); }
+h3 { font-size: 18px; margin: var(--sp-md) 0 var(--sp-sm); color: var(--doc-primary); }
+.feature-desc { background: var(--doc-bg-soft); border-left: 4px solid var(--doc-primary); padding: var(--sp-sm) var(--sp-md); margin-bottom: var(--sp-md); border-radius: 4px; }
+.interaction-desc { background: #fef3c7; border-left: 4px solid var(--warning); padding: var(--sp-sm) var(--sp-md); margin: var(--sp-md) 0; border-radius: 4px; font-size: 14px; }
+.interaction-desc strong { color: #92400e; }
+.prototype { margin: var(--sp-md) 0; border: 2px dashed var(--doc-border); border-radius: var(--radius-card); overflow: hidden; }
+.proto-label { background: var(--doc-bg-soft); padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--doc-text-muted); border-bottom: 1px solid var(--doc-border); }
+.proto-container { background: var(--bg); color: var(--text); min-height: 400px; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+#changelog th { background: var(--doc-bg-soft); }
+.warning-banner { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; color: #991b1b; font-size: 14px; }
+.warning-banner strong { color: #7f1d1d; }
+</style>
+</head>
+<body>
+
+<aside id="doc-nav">
+    <div class="nav-title">漫剧剪辑师</div>
+    <div class="nav-subtitle">前后端分离 v4.0 设计文档 v2</div>
+
+    <a href="#changelog-v2">v2 变更说明</a>
+    <a href="#overview">项目概述</a>
+    <a href="#design-system">设计系统</a>
+
+    <a href="#module-login">M1 · 登录注册</a>
+    <a href="#module-projects">M2 · 项目列表</a>
+    <a href="#module-episodes">M3 · 剧集管理</a>
+    <a href="#module-creations">M4 · 创作流程</a>
+    <a href="#module-step1">M5 · Step1 输入</a>
+    <a href="#module-step2">M6 · Step2 拆解+搜索</a>
+    <a href="#module-step3">M7 · Step3 口播长文</a>
+    <a href="#module-step4">M8 · Step4 双线并行</a>
+    <a href="#module-step5-marks">M9 · Step5 标记列表（核心表格）</a>
+    <a href="#module-step5-edit">M10 · Step5 编辑弹窗</a>
+    <a href="#module-step5-preview">M11 · Step5 同步播放</a>
+    <a href="#module-step6">M12 · Step6 裁切合并</a>
+    <a href="#module-step7">M13 · Step7 合成导出</a>
+    <a href="#module-profile">M14 · 个人中心</a>
+    <a href="#module-membership">M15 · 会员中心</a>
+    <a href="#module-admin">M16 · 管理员后台</a>
+</aside>
+
+<main id="doc-main">
+
+<h1>漫剧剪辑师 · 设计文档 v2</h1>
+<p style="color: var(--doc-text-muted);">2026-09-08 · 基于 v1 + 补充 Step5 标记编辑细节 · docs-design v2</p>
+
+<!-- v2 变更说明 -->
+<section id="changelog-v2">
+<div class="warning-banner">
+<strong>v2 关键变更：</strong> v1 中 Step5 严重低估了复杂度。旧版 <code>AI漫剧剪辑师旧参考项目代码/static/index.html</code> 的标记列表是一个 13 列的高密度表格，每行可直接编辑 start/end 秒数、有 ±1 秒微调按钮、有静音切换、有单段播放按钮。v2 已完整画出来，并拆分为 M9-M11 三个子模块。
+</div>
+</section>
+
+<!-- 项目概述 -->
+<section id="overview">
+<h2>项目概述</h2>
+<div class="feature-desc">
+<strong>项目名：</strong> cut-web<br>
+<strong>目标：</strong> 1:1 复刻旧版 <code>AI漫剧剪辑师旧参考项目代码/static/index.html</code>，重写为 React + TS + Vite + AntD + Zustand 的前后端分离应用。<br>
+<strong>核心：</strong> 7 步视频剪辑向导（含高密度的标记编辑表格）<br>
+<strong>显式排除：</strong> 股票 / 关注 / 完整 RBAC / 在线支付
+</div>
+</section>
+
+<!-- 设计系统 -->
+<section id="design-system">
+<h2>设计系统</h2>
+<p>沿用旧版暗色主题：<code>--bg: #0f1117</code> + <code>--primary: #7c3aed</code> + <code>--accent: #D85A30</code>。Ant Design 主题 token 覆盖完整。</p>
+<p>字体：<code>-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif</code></p>
+</section>
+
+<!-- M1 登录注册 -->
+<section id="module-login">
+<h2>M1 · 登录注册</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-login">v1 M1</a>（不变）</p>
+</section>
+
+<!-- M2 项目列表 -->
+<section id="module-projects">
+<h2>M2 · 项目列表</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-projects">v1 M2</a>（不变）</p>
+</section>
+
+<!-- M3 剧集管理 -->
+<section id="module-episodes">
+<h2>M3 · 剧集管理</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-episodes">v1 M3</a>（不变）</p>
+</section>
+
+<!-- M4 创作流程 -->
+<section id="module-creations">
+<h2>M4 · 创作流程（7 步向导）</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-creations">v1 M4</a>（不变）</p>
+</section>
+
+<!-- M5 Step1 -->
+<section id="module-step1">
+<h2>M5 · Step1 输入漫剧信息</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step1">v1 M5</a>（不变）</p>
+</section>
+
+<!-- M6 Step2 -->
+<section id="module-step2">
+<h2>M6 · Step2 AI 拆解 + 搜索文章</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step2">v1 M6</a>（不变）</p>
+</section>
+
+<!-- M7 Step3 -->
+<section id="module-step3">
+<h2>M7 · Step3 口播长文生成</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step3">v1 M7</a>（不变）</p>
+</section>
+
+<!-- M8 Step4 -->
+<section id="module-step4">
+<h2>M8 · Step4 双线并行（音频 + 视频标记）</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step4">v1 M8</a>（不变）</p>
+</section>
+
+<!-- ============================================================
+     M9 · Step5 标记列表（核心·v2 重点）
+     ============================================================ -->
+<section id="module-step5-marks">
+<h2>⭐ M9 · Step5 标记列表（核心表格 · 13 列）</h2>
+
+<div class="warning-banner">
+<strong>重要：</strong> 旧版的标记列表是整个产品最复杂的组件之一，必须 1:1 复刻。每行支持单独编辑 start/end 秒数、±1 秒微调、静音切换、单段预览、删除。整张表格支持顺序调整。
+</div>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 用户精细调整每个标记片段的秒数，确认无误后才在 Step6 真正裁切。<br>
+<strong>复用旧版：</strong> 旧版 <code>static/index.html</code> 第 3500 行附近。<br>
+<strong>接口：</strong> GET /api/step5/load（拉取 markers）· POST /api/step5/save（保存编辑后）· POST /api/step5/remark（重新随机标记）
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">M9-1 · 标记列表（13 列高密度表格 + 顶部工具栏）</div>
+<div class="proto-container" style="padding:20px; min-height:700px;">
+
+<!-- 顶部工具栏 -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+<div>
+<button style="background:var(--accent); color:white; border:none; padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer; font-size:13px;">▶ 同步播放</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer; font-size:13px;">🔀 重新标记</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer; font-size:13px;">+ 添加切片</button>
+</div>
+<div style="font-size:12px; color:var(--text-secondary);">
+目标时长: <span style="color:var(--success); font-weight:600;">50.0s</span> · 
+音频时长: 48.0s · 
+差异: <span style="color:var(--success);">+2.0s ✓</span>
+</div>
+</div>
+
+<!-- 视频预览 + 音频播放器 -->
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+<div style="background:#000; border-radius:8px; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; position:relative;">
+<div style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.6); padding:4px 10px; border-radius:4px; font-size:11px; color:white;" id="marker-status">▶ 同步播放中 · 切片 3/8 · ep003.mp4 [00:23 → 00:27]</div>
+<div style="font-size:36px; color:rgba(255,255,255,0.3);">▶</div>
+</div>
+<div style="background:var(--surface-2); border-radius:8px; padding:12px; display:flex; flex-direction:column; justify-content:center;">
+<div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">🎵 TTS 音频</div>
+<div style="font-size:13px; color:var(--text); margin-bottom:8px;">00:48 · edge-tts · zh-CN-XiaoxiaoNeural</div>
+<div style="background:var(--surface-3); height:6px; border-radius:3px; overflow:hidden;">
+<div style="background:var(--accent); height:100%; width:60%;"></div>
+</div>
+</div>
+</div>
+
+<!-- 13 列标记表格（核心） -->
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:auto;">
+<table style="width:100%; border-collapse:collapse; font-size:12px; min-width:1200px;">
+<thead style="background:var(--surface-2);">
+<tr style="color:var(--text-secondary); font-size:11px;">
+<th style="padding:8px; width:50px;">#</th>
+<th style="padding:8px; width:80px;">操作</th>
+<th style="padding:8px; width:40px;">●</th>
+<th style="padding:8px; width:60px;">时长(s)</th>
+<th style="padding:8px; width:60px;">累计(s)</th>
+<th style="padding:8px; width:140px;">源视频</th>
+<th style="padding:8px; width:140px;">改名</th>
+<th style="padding:8px; width:60px;">静音</th>
+<th style="padding:8px; width:30px;"></th>
+<th style="padding:8px; width:70px;">开始(s)</th>
+<th style="padding:8px; width:70px;">结束(s)</th>
+<th style="padding:8px; width:30px;"></th>
+<th style="padding:8px; width:80px;">预览/删除</th>
+</tr>
+</thead>
+<tbody>
+<!-- 示例行 1 -->
+<tr style="border-top:1px solid var(--border); background:rgba(124,58,237,0.08);">
+<td style="padding:6px; color:var(--text-secondary);">1</td>
+<td style="padding:6px;">
+<button title="上移" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); padding:2px 6px; border-radius:4px; cursor:pointer;">▲</button>
+<button title="下移" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); padding:2px 6px; border-radius:4px; cursor:pointer;">▼</button>
+</td>
+<td style="padding:6px; text-align:center;">
+<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--success); box-shadow:0 0 6px var(--success);"></span>
+</td>
+<td style="padding:6px; text-align:center; font-weight:600; color:var(--primary);">4.0</td>
+<td style="padding:6px; text-align:center; color:var(--text-secondary);">4.0</td>
+<td style="padding:6px; color:var(--text); font-size:11px;">ep001.mp4</td>
+<td style="padding:6px;">
+<input value="ep001.mp4" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; font-size:11px; width:120px;">
+</td>
+<td style="padding:6px; text-align:center;">
+<label style="display:flex; align-items:center; gap:4px; cursor:pointer; justify-content:center;">
+<input type="checkbox" checked style="pointer-events:all;">
+<span style="font-size:10px; color:var(--text-secondary);">静音</span>
+</label>
+</td>
+<td style="padding:6px;">
+<button title="start -1s" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-secondary); padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">-1</button>
+</td>
+<td style="padding:6px;">
+<input type="number" step="0.1" value="0.0" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; width:60px; font-size:11px;">
+</td>
+<td style="padding:6px;">
+<input type="number" step="0.1" value="4.0" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; width:60px; font-size:11px;">
+</td>
+<td style="padding:6px;">
+<button title="end +1s" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-secondary); padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">+1</button>
+</td>
+<td style="padding:6px;">
+<button title="预览此段" style="background:var(--accent); color:white; border:none; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:11px;">▶</button>
+<button title="删除" style="background:transparent; border:none; color:var(--error); cursor:pointer; font-size:14px; margin-left:4px;">✕</button>
+</td>
+</tr>
+<!-- 示例行 2（不活跃） -->
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:6px; color:var(--text-secondary);">2</td>
+<td style="padding:6px;">
+<button title="上移" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); padding:2px 6px; border-radius:4px; cursor:pointer;">▲</button>
+<button title="下移" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); padding:2px 6px; border-radius:4px; cursor:pointer;">▼</button>
+</td>
+<td style="padding:6px; text-align:center;">
+<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--border);"></span>
+</td>
+<td style="padding:6px; text-align:center; font-weight:600; color:var(--primary);">5.2</td>
+<td style="padding:6px; text-align:center; color:var(--text-secondary);">9.2</td>
+<td style="padding:6px; color:var(--text); font-size:11px;">ep002.mp4</td>
+<td style="padding:6px;">
+<input value="ep002.mp4" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; font-size:11px; width:120px;">
+</td>
+<td style="padding:6px; text-align:center;">
+<label style="display:flex; align-items:center; gap:4px; cursor:pointer; justify-content:center;">
+<input type="checkbox">
+<span style="font-size:10px; color:var(--text-secondary);">有声</span>
+</label>
+</td>
+<td style="padding:6px;">
+<button style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-secondary); padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">-1</button>
+</td>
+<td style="padding:6px;">
+<input type="number" step="0.1" value="8.0" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; width:60px; font-size:11px;">
+</td>
+<td style="padding:6px;">
+<input type="number" step="0.1" value="13.2" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; width:60px; font-size:11px;">
+</td>
+<td style="padding:6px;">
+<button style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-secondary); padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">+1</button>
+</td>
+<td style="padding:6px;">
+<button title="预览此段" style="background:var(--accent); color:white; border:none; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:11px;">▶</button>
+<button title="删除" style="background:transparent; border:none; color:var(--error); cursor:pointer; font-size:14px; margin-left:4px;">✕</button>
+</td>
+</tr>
+<!-- 示例行 3 -->
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:6px; color:var(--text-secondary);">3</td>
+<td style="padding:6px;">
+<button title="上移" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); padding:2px 6px; border-radius:4px; cursor:pointer;">▲</button>
+<button title="下移" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); padding:2px 6px; border-radius:4px; cursor:pointer;">▼</button>
+</td>
+<td style="padding:6px; text-align:center;">
+<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--border);"></span>
+</td>
+<td style="padding:6px; text-align:center; font-weight:6px; color:var(--primary);">3.8</td>
+<td style="padding:6px; text-align:center; color:var(--text-secondary);">13.0</td>
+<td style="padding:6px; color:var(--text); font-size:11px;">ep003.mp4</td>
+<td style="padding:6px;">
+<input value="ep003.mp4" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; font-size:11px; width:120px;">
+</td>
+<td style="padding:6px; padding:6px;">
+<label style="display:flex; align-items:center; gap:4px; cursor:pointer; justify-content:center;">
+<input type="checkbox" checked>
+<span style="font-size:10px; color:var(--text-secondary);">静音</span>
+</label>
+</td>
+<td style="padding:6px;">
+<button style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-secondary); padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">-1</button>
+</td>
+<td style="padding:6px;">
+<input type="number" step="0.1" value="23.4" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; width:60px; font-size:11px;">
+</td>
+<td style="padding:6px;">
+<input type="number" step="0.1" value="27.2" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:4px; cursor:pointer; font-size:11px;">+1</button>
+</td>
+<td style="padding:6px;">
+<button style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-secondary); padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">+1</button>
+</td>
+<td style="padding:6px;">
+<button title="预览此段" style="background:var(--accent); color:white; border:none; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:11px;">▶</button>
+<button title="删除" style="background:transparent; border:none; color:var(--error); cursor:pointer; font-size:14px; margin-left:4px;">✕</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div style="margin-top:8px; font-size:12px; color:var(--text-muted); text-align:center;">
+共 8 个切片 · 来自 4 个视频文件 · 平均时长 4.7s
+</div>
+
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>13 列含义（旧版 <code>static/index.html</code> 3500-3521 行）：</strong>
+<ol>
+<li><strong>#</strong> — 顺序号（紫色高亮当前播放行）</li>
+<li><strong>操作</strong> — ▲▼ 上下移（调顺序）</li>
+<li><strong>●</strong> — 状态灯：绿色发光 = 正在播放</li>
+<li><strong>时长(s)</strong> — 该片段时长（自动计算 = end - start）</li>
+<li><strong>累计(s)</strong> — 从第一段累计到本段的总时长（实时）</li>
+<li><strong>源视频</strong> — 视频文件名（提示框显示完整路径）</li>
+<li><strong>改名</strong> — 可改显示名（不影响实际文件）</li>
+<li><strong>静音</strong> — checkbox 切换该段是否静音（"静音" / "有声"）</li>
+<li><strong>-1</strong> — start 秒数减少 1（微调）</li>
+<li><strong>开始(s)</strong> — 输入框直接修改 start</li>
+<li><strong>结束(s)</strong> — 输入框直接修改 end</li>
+<li><strong>+1</strong> — end 秒数增加 1（微调）</li>
+<li><strong>▶ ✕</strong> — 单独预览此段 / 删除此段</li>
+</ol>
+<strong>关键交互：</strong>
+<ul>
+<li><strong>±1 秒按钮</strong>：点击立即生效（input 同步刷新），无需按回车</li>
+<li><strong>直接输入 start/end</strong>：onchange 触发，<strong>实时</strong> 重算 duration 与 cumulative</li>
+<li><strong>改名</strong>：仅显示层，不影响实际文件路径</li>
+<li><strong>静音切换</strong>：影响 Step6 合并时是否对该段降音</li>
+<li><strong>单独预览</strong>：点 ▶ 立即用 video.currentTime 跳到 start 播放到 end</li>
+<li><strong>删除</strong>：二次确认（Popconfirm）</li>
+</ul>
+<strong>性能要求：</strong>
+<ul>
+<li>整列重新渲染需 < 100ms（≤ 50 行）</li>
+<li>onchange 触发的 cumulative 重算用 <code>useMemo</code> 缓存</li>
+<li>长列表（> 50 行）启用虚拟滚动</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M10 · Step5 编辑弹窗（高级·可选用）
+     ============================================================ -->
+<section id="module-step5-edit">
+<h2>M10 · Step5 编辑弹窗（高级模式）</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 双击列表行可打开"高级编辑模式"，提供源视频预览 + 多种调整方式。<br>
+<strong>复用旧版：</strong> <code>modal-marker-edit</code>（旧版 1659-1704 行）。
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">M10-1 · 编辑标记时间段（弹窗）</div>
+<div class="proto-container" style="position:relative; min-height:600px;">
+<div style="position:absolute; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; padding:20px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:24px; width:600px; max-width:100%; max-height:90vh; overflow-y:auto;"> <!-- 弹窗 -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+<h4 style="color:var(--text); margin:0;">编辑标记时间段</h4>
+<button style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">×</button>
+</div>
+<label style="display:block; color:var(--text); font-size:13px; margin-bottom:6px;">源视频预览（播放过程中可查看当前时间）</label>
+<div style="background:#000; border-radius:8px; aspect-ratio:16/9; margin-bottom:8px; display:flex; align-items:center; justify-content:center; position:relative;">
+<video controls style="width:100%; border-radius:8px;"></video>
+</div>
+<div style="font-size:11px; color:var(--text-muted); margin-bottom:16px;">当前时间：00:23.4 (23.4s)</div>
+<div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:16px;">
+<div>
+<label style="display:block; color:var(--text); font-size:12px; margin-bottom:4px;">开始秒数</label>
+<input type="number" step="0.1" value="23.4" style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:4px;">
+</div>
+<div>
+<label style="display:block; color:var(--text); font-size:12px; margin-bottom:4px;">结束秒数</label>
+<input type="number" step="0.1" value="27.2" style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:4px;">
+</div>
+<div>
+<label style="display:block; color:var(--text); font-size:12px; margin-bottom:4px;">时间跨度(s)</label>
+<input type="number" step="0.1" value="3.8" disabled style="width:100%; background:var(--surface-3); border:1px solid var(--border); color:var(--text-muted); padding:6px 10px; border-radius:4px;">
+</div>
+</div>
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:20px;">
+<div>
+<label style="display:block; color:var(--text); font-size:12px; margin-bottom:4px;">调整方式</label>
+<select style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:4px;">
+<option value="set">直接设置（按上方填写的秒数）</option>
+<option value="add">增加秒数（在当前基础上 +N 秒）</option>
+<option value="sub">减少秒数（在当前基础上 -N 秒）</option>
+</select>
+</div>
+<div>
+<label style="display:block; color:var(--text); font-size:12px; margin-bottom:4px;">增减秒数</label>
+<input type="number" step="0.1" value="0" style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:4px;">
+</div>
+</div>
+<div style="display:flex; justify-content:flex-end; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer;">取消</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer;">跳到开始</button>
+<button style="background:var(--primary); color:white; border:none; padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer;">确认修改</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>三种调整方式（核心逻辑）：</strong>
+<ul>
+<li><strong>set（直接设置）</strong>：按上方 start/end 输入框值生效</li>
+<li><strong>add（增加）</strong>：new_start = m.start + adjust_sec, new_end = m.end + adjust_sec（整体平移）</li>
+<li><strong>sub（减少）</strong>：new_start = max(0, m.start - adjust_sec), new_end = max(new_start+0.1, m.end - adjust_sec)</li>
+</ul>
+<strong>实时联动：</strong>
+<ul>
+<li>start/end 输入框 oninput → duration 自动计算（不可编辑，灰色）</li>
+<li>video.ontimeupdate → "当前时间" 文字实时更新</li>
+</ul>
+<strong>与表格行编辑的关系：</strong>
+<ul>
+<li>表格内编辑（v2 M9 的 input/±1 按钮）：适用于精细快速调整</li>
+<li>弹窗编辑（本节）：适用于需要看源视频上下文的复杂调整</li>
+<li>两处最终都更新 <code>m.start/m.end/m.duration</code>，数据源一致</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M11 · Step5 同步播放（核心创新）
+     ============================================================ -->
+<section id="module-step5-preview">
+<h2>⭐ M11 · Step5 同步播放（核心创新）</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 音频顺序播放 + 视频按切片逐个 <code>currentTime</code> 切换，<strong>0 文件 IO</strong>，立即验证音频视频同步。<br>
+<strong>复用旧版：</strong> <code>startSyncPlayS3()</code>（旧版 3930-4000 行）。
+</div>
+
+<h3>核心逻辑</h3>
+<div style="background:var(--doc-bg-soft); padding:16px; border-radius:8px; font-family:monospace; font-size:13px; line-height:1.7; color:var(--doc-text);">
+<pre>
+async function startSyncPlay() {
+  stopAllPlaying(); _mode = 'sync';
+  const audio = audioEl; const video = videoEl;
+
+  // 1. 音频顺序播放（按 selectedAudios 列表）
+  const playAudioAt = (idx) => {
+    audio.src = previewUrl(selectedAudios[idx].path);
+    audio.play();
+    audio.onended = () => {
+      if (idx+1 < selectedAudios.length) playAudioAt(idx+1);
+    };
+  };
+  playAudioAt(0);
+
+  // 2. 视频按切片逐个播放（核心 0 IO）
+  const playNextMarker = () => {
+    if (_markerIndex >= markers.length) return;
+    const m = markers[_markerIndex];
+    video.src = previewUrl(m.source_path);
+    video.load();
+    video.addEventListener('loadedmetadata', () => {
+      video.currentTime = m.start;
+      video.play();
+      lightDot(m.id); // 状态灯点亮
+    }, { once: true });
+
+    const onEnd = () => {
+      if (video.currentTime >= m.end - 0.05) {
+        video.pause();
+        _markerIndex++;
+        lightDot(null);
+        playNextMarker();
+      }
+    };
+    video.addEventListener('timeupdate', onEnd);
+  };
+  playNextMarker();
+
+  // 3. 状态栏实时更新
+  statusEl.textContent = `同步播放中 · 音频 ${audioIdx+1}/${total} · 切片 ${markerIdx+1}/${markers.length}`;
+}
+</pre>
+</div>
+
+<div class="interaction-desc">
+<strong>UI 状态：</strong>
+<ul>
+<li>正在播放时：按钮变 "⏸ 暂停" · 视频区显示当前片段信息</li>
+<li>状态栏：<code>同步播放中 · 音频 1/3 · 切片 3/8 · ep003.mp4 [00:23 → 00:27]</code></li>
+<li>当前片段行：紫色高亮 + 状态灯绿色发光</li>
+</ul>
+<strong>停止条件：</strong>
+<ul>
+<li>用户主动点 ⏸</li>
+<li>所有音频 + 视频结束</li>
+<li>关闭页面 / 切换 Step</li>
+</ul>
+<strong>关键代码引用：</strong>
+<ul>
+<li>旧版 <code>static/index.html</code> 第 3930-4000 行</li>
+<li>新前端实现 <code>cut-web/src/features/creations/step5/preview/SyncPlayer.tsx</code></li>
+</ul>
+</div>
+</section>
+
+<!-- M12~M16 链接到 v1 -->
+<section id="module-step6">
+<h2>M12 · Step6 裁切合并</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step6">v1 M10</a>（不变）</p>
+</section>
+
+<section id="module-step7">
+<h2>M13 · Step7 合成导出</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step7">v1 M11</a>（不变）</p>
+</section>
+
+<section id="module-profile">
+<h2>M14 · 个人中心</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-profile">v1 M12</a>（不变）</p>
+</section>
+
+<section id="module-membership">
+<h2>M15 · 会员中心</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-membership">v1 M13</a>（不变）</p>
+</section>
+
+<section id="module-admin">
+<h2>M16 · 管理员后台</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-admin">v1 M14</a>（不变）</p>
+</section>
+
+<!-- 变更记录 -->
+<section id="changelog">
+<h2>变更记录</h2>
+<table>
+<tr><th>日期</th><th>版本</th><th>变更内容</th></tr>
+<tr><td>2026-09-08</td><td>v2.0</td><td><strong>重大修订：</strong>补充 Step5 核心交互细节。<br>- 拆分原 M9 为 M9 标记列表（13列表格）/ M10 编辑弹窗 / M11 同步播放<br>- 表格列出全部 13 列（顺序 / 状态灯 / 时长 / 累计 / 源视频 / 改名 / 静音 / ±1按钮 / start-end / 预览 / 删除）<br>- 同步播放伪代码完整列出（旧版 startSyncPlayS3 函数逻辑）<br>- 链接 v1 中未变化的模块</td></tr>
+<tr><td>2026-09-08</td><td>v1.0</td><td>初版（14 模块原型 + 暗色主题 + 8px 网格 + AntD token 覆盖）</td></tr>
+</table>
+</section>
+
+</main>
+</body>
+</html>

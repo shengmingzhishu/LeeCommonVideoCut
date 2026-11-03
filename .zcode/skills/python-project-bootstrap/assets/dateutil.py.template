@@ -1,0 +1,113 @@
+# Copyright (c) 2026 All rights reserved.
+#
+# 本文件根据 MIT 许可证授权。
+#
+# 文件名: dateutil.py
+# 作者: 方舟
+# 描述: 通用日期工具类
+
+import re
+from re import Pattern
+from datetime import datetime, timedelta
+
+from {{ project_name }}.utils.logs import LOGGER
+
+class DateUtil:
+    _DATE_PATTERNS = None
+
+    @classmethod
+    def initialize(cls):
+        if cls._DATE_PATTERNS is not None:
+            return
+        # 定义日期模式匹配规则
+        cls._DATE_PATTERNS = [
+            # 格式: YYYYMMDD (8位数字)
+            (re.compile(r'^(\d{4})(\d{2})(\d{2})$'), 'full'),
+            
+            # 格式: YY.M.D 或 YY.MM.DD 或 YYYY.M.D 或 YYYY.MM.DD
+            (re.compile(r'^(\d{2,4})\.(\d{1,2})\.(\d{1,2})$'), 'dot'),
+            
+            # 格式: YY年M月D号 或 YY年M月D日 或 YYYY年M月D号 或 YYYY年M月D日
+            (re.compile(r'^(\d{2,4})年(\d{1,2})月(\d{1,2})(?:号|日)$'), 'cn'),
+            
+            # 格式: YY年M月D 或 YYYY年M月D
+            (re.compile(r'^(\d{2,4})年(\d{1,2})月(\d{1,2})$'), 'cn_no_suffix'),
+            
+            # 格式: YY-M-D 或 YY-MM-DD 或 YYYY-M-D 或 YYYY-MM-DD
+            (re.compile(r'^(\d{2,4})-(\d{1,2})-(\d{1,2})$'), 'dash'),
+            
+            # 格式: YY/M/D 或 YY/MM/DD 或 YYYY/M/D 或 YYYY/MM/DD
+            (re.compile(r'^(\d{2,4})/(\d{1,2})/(\d{1,2})$'), 'slash'),
+        ]
+    
+    @classmethod
+    def format_date_string(cls, param):
+        """
+        格式化日期字符串
+        
+        参数:
+            param (str): 输入的日期字符串
+            
+        返回:
+            str: 格式化后的日期字符串或原始字符串
+        """
+        # 如果输入不是字符串，直接返回
+        if param is None or not isinstance(param, str):
+            return param
+        if len(param.strip()) > 16:
+            return param
+        input_str = re.sub(r'[ \t]+', '', param)
+        input_str = re.sub(r'[xX]', '9', input_str)  # 将所有的 x 或 X 替换为 9
+        if len(input_str) > 16:
+            return param
+        
+        for pattern, pattern_type in cls._DATE_PATTERNS:
+            match = re.match(pattern, input_str)
+            if match:
+                try:
+                    year_str = match.group(1)
+                    month_str = match.group(2)
+                    day_str = match.group(3)
+                    
+                    # 处理年份
+                    if len(year_str) == 2:
+                        # 两位年份，假设20XX年
+                        current_year = datetime.now().year
+                        century = current_year // 100
+                        # 如果两位年份大于当前年份的后两位，则认为是19XX年
+                        if int(year_str) > current_year % 100:
+                            year = (century - 1) * 100 + int(year_str)
+                        else:
+                            year = century * 100 + int(year_str)
+                    else:
+                        year = int(year_str)
+                    
+                    month = int(month_str)
+                    day = int(day_str)
+                    
+                    # 验证日期的有效性
+                    if match:  #1 <= month <= 12 and 1 <= day <= 31:
+                        now = datetime.now()
+                        # 尝试创建日期对象来验证日期是否真正有效（比如2月30日会失败）
+                        try:
+                            dt = datetime(year, month, day)
+                        except ValueError:
+                            dt = now + timedelta(days=1)
+                        
+                        # 返回格式化后的日期字符串
+                        if now.date() < dt.date():
+                            result = f"{now.year}年{now.month}月{now.day}日"
+                        else:
+                            result = f"{year}年{month}月{day}日"
+
+                        if result == param.strip():
+                            return param
+                        return result                        
+                except (ValueError, Exception):
+                    # 如果日期无效，继续尝试其他模式
+                    continue        
+        # 如果没有匹配到任何日期格式，返回原始字符串
+        return param
+
+
+DateUtil.initialize()

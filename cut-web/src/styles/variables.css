@@ -1,0 +1,34 @@
+/* 旧版暗色主题 CSS 变量（cut-web 规则 §1.1 强制沿用） */
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface-2: #21252f;
+  --surface-3: #2a2f3d;
+  --border: #2d3142;
+  --border-light: #3a3f52;
+  --text: #e4e7ec;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --primary: #7c3aed;
+  --primary-hover: #8b5cf6;
+  --primary-dim: #6d28d9;
+  --accent: #d85a30;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  --radius-card: 12px;
+  --radius-btn: 8px;
+  --radius-input: 8px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.4);
+  --transition: 0.2s ease;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}

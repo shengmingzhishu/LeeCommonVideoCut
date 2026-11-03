@@ -1,0 +1,86 @@
+import asyncio
+from asyncio import Queue
+from typing import AsyncIterator
+from {{ project_name }}.utils.llmclient import OpenAIResult, OpenAIResultType
+
+class LLMTaskManager: 
+    '''
+    任务并发管理器，与自带的asyncio相比，支持流式输出和异常捕获功能，适用于LLM相关的任务并发场景
+    '''
+    @classmethod
+    async def __run_task(cls, ctx: dict):
+        task_idx = ctx.get("task_idx")
+        task_coro = ctx.get("task_coro")
+        task_queue: Queue = ctx.get("task_queue")
+        try:
+            async for event in task_coro:
+                end_flag = False
+                chunk: OpenAIResult = event
+                if chunk.type == OpenAIResultType.RESULT or chunk.type == OpenAIResultType.EXCEPTION:
+                    end_flag = True
+                queue_ctx = {
+                    "task_idx": task_idx,
+                    "chunk": event,
+                    "end_flag": end_flag
+                }
+                await task_queue.put(queue_ctx)
+        except Exception as e:
+            queue_ctx = {
+                "task_idx": task_idx,
+                "chunk": OpenAIResult(OpenAIResultType.EXCEPTION, e),
+                "end_flag": True
+            }
+            await task_queue.put(queue_ctx)
+
+    @classmethod
+    async def gather(cls, *tasks, return_exceptions=False) -> AsyncIterator[OpenAIResult]:
+        if not tasks:
+            raise Exception("no task to run")
+        for task in tasks:
+            ok = asyncio.iscoroutine(task) or isinstance(task, AsyncIterator) or hasattr(task, "__aiter__")
+            if not ok:
+                raise Exception("each task should be a coroutine or an instance of Task")
+        event_queue = Queue()
+        bg_tasks: list[asyncio.Task] = []
+        expected_task_count = len(tasks)
+        finished_task_flags: list[bool] = [False] * expected_task_count
+        next_task_idx = 0
+        for idx, task in enumerate(tasks):
+            ctx: dict = {
+                "task_idx": idx,
+                "task_coro": task,
+                'task_queue': event_queue
+            }
+            bg_task = asyncio.create_task(cls.__run_task(ctx))
+            bg_tasks.append(bg_task)
+        results: list[OpenAIResult] = [None] * expected_task_count
+        yielded_remain_tasks: list[list] = [[] for _ in range(expected_task_count)]
+        while True:
+            if all(finished_task_flags):
+                break
+            queue_ctx = await event_queue.get()
+            task_idx = queue_ctx.get("task_idx")
+            chunk: OpenAIResult = queue_ctx.get("chunk")
+            end_flag = queue_ctx.get("end_flag")
+            if chunk.type == OpenAIResultType.EXCEPTION or chunk.type == OpenAIResultType.RESULT:
+                results[task_idx] = chunk.data
+                if chunk.type == OpenAIResultType.EXCEPTION and not return_exceptions:
+                    for bg_task in bg_tasks:
+                        bg_task.cancel()
+                    raise chunk.data
+            if task_idx == next_task_idx:
+                if chunk.type == OpenAIResultType.CONTENT or chunk.type == OpenAIResultType.THINK:
+                    yield chunk
+            else:
+                if chunk.type == OpenAIResultType.CONTENT or chunk.type == OpenAIResultType.THINK:
+                    yielded_remain_tasks[task_idx].append(chunk)
+            if end_flag:
+                finished_task_flags[task_idx] = True
+                if task_idx == next_task_idx:
+                    while next_task_idx < expected_task_count and finished_task_flags[next_task_idx]:
+                        next_task_idx += 1
+                        if next_task_idx < expected_task_count:
+                            for remain_chunk in yielded_remain_tasks[next_task_idx]:
+                                yield remain_chunk
+                            yielded_remain_tasks[next_task_idx].clear()
+        yield OpenAIResult(OpenAIResultType.SET, results)

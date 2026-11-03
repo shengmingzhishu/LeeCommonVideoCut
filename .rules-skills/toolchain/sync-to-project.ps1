@@ -18,7 +18,7 @@
 
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet("server","web","all")]
+    [ValidateSet("server","web","all","cut-server","cut-web")]
     [string]$Target,
 
     [switch]$DryRun,
@@ -30,15 +30,38 @@ $ErrorActionPreference = "Stop"
 $base = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path))
 
 # --- 配置 ---
+# 业务项目目录映射：本仓库用 cut-server/cut-web 作为业务命名
+# 模板源仍使用 ai-server/ai-web 作为通用模板目录
+$projectDirMap = @{
+    "cut-server" = "ai-server"
+    "cut-web"    = "ai-web"
+    "ai-server"  = "ai-server"
+    "ai-web"     = "ai-web"
+}
+
 $configs = @{
     server = @{
         StackDir   = "python-stack"
-        ProjectDir = "ai-server"
+        ProjectDir = "cut-server"
+        TemplateDir = "ai-server"
         Layers     = @("shared", "python-stack", "ai-server")
     }
     web = @{
         StackDir   = "react-stack"
-        ProjectDir = "ai-web"
+        ProjectDir = "cut-web"
+        TemplateDir = "ai-web"
+        Layers     = @("shared", "react-stack", "ai-web")
+    }
+    "cut-server" = @{
+        StackDir   = "python-stack"
+        ProjectDir = "cut-server"
+        TemplateDir = "ai-server"
+        Layers     = @("shared", "python-stack", "ai-server")
+    }
+    "cut-web" = @{
+        StackDir   = "react-stack"
+        ProjectDir = "cut-web"
+        TemplateDir = "ai-web"
         Layers     = @("shared", "react-stack", "ai-web")
     }
 }
@@ -243,7 +266,7 @@ function Sync-Target {
         -IsDryRun $IsDryRun
 
     # --- 同步项目层（rules 不覆盖，skills 复制新增） ---
-    $projectSource = "$base\.rules-skills\$($cfg.ProjectDir)\.trae"
+    $projectSource = "$base\.rules-skills\$($cfg.TemplateDir)\.trae"
     Write-Log "`n--- 同步项目层 ($($cfg.ProjectDir)) ---" "INFO"
 
     # Project rules: 仅复制新增文件，不覆盖已有文件

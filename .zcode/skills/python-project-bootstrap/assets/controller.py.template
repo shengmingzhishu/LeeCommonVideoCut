@@ -1,0 +1,62 @@
+
+# Copyright (c) 2026 All rights reserved.
+#
+# 本文件根据 MIT 许可证授权。
+#
+# 文件名: controller.py
+# 作者: 方舟
+# 描述: 通用 Controller 定义
+
+import os
+import sys
+import uvicorn
+import argparse
+from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi.responses import JSONResponse, PlainTextResponse
+from starlette.middleware.cors import CORSMiddleware
+
+from {{ project_name }}.utils.env import SERVER_PORT, SERVER_IP
+from {{ project_name }}.utils.logs import LOGGER
+
+
+app = FastAPI()
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # 记录日志
+    LOGGER.error(f"Unhandled error: {exc}", exc_info=True)
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "id": "XXXX",
+            "event": "error",
+            "data": str(exc)
+        }
+    )
+
+def verify_localhost(request: Request):
+    client_host = request.client.host
+    if client_host not in ["127.0.0.1", "::1"]:
+        raise HTTPException(status_code=403, detail="Forbidden: 仅本机可访问")
+    return True
+
+@app.get("/init", dependencies=[Depends(verify_localhost)])
+async def admin_endpoint():
+    return {"message": "仅限本机访问的管理接口"}
+
+if __name__ == '__main__':
+    _parser = argparse.ArgumentParser(description='External Server')
+    _parser.add_argument('--port', '-P', type=int, default=SERVER_PORT, help='对外暴露的端口号')
+    _parser.add_argument('--host', '-H', type=str, default=SERVER_IP, help='对外暴露的IP')
+    _args = _parser.parse_args()
+    uvicorn.run(app=app, host=_args.host, port=_args.port)

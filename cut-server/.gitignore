@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# 数据库与工作目录
+data/
+workspace/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+logs/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Node / 前端构建产物（cut-web 内有自己的 .gitignore）
+dist/
+build/
+node_modules/
+*.tsbuildinfo
+
+# Alembic
+alembic/__pycache__/

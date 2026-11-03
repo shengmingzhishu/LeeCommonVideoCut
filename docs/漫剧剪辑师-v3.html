@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漫剧剪辑师 · 设计文档 v3</title>
+<style>
+:root {
+    --bg: #0f1117; --surface: #1a1d27; --surface-2: #21252f; --surface-3: #2a2f3d;
+    --border: #2d3142; --border-light: #3a3f52;
+    --text: #e4e7ec; --text-secondary: #9ca3af; --text-muted: #6b7280;
+    --primary: #7c3aed; --primary-hover: #8b5cf6; --primary-dim: #6d28d9;
+    --accent: #D85A30; --accent-hover: #e96a3f;
+    --success: #10b981; --warning: #f59e0b; --error: #ef4444; --info: #3b82f6;
+    --radius-card: 12px; --radius-btn: 8px; --radius-input: 8px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.3);
+    --doc-text: #1a1a2e; --doc-text-light: #4b5563; --doc-bg: #ffffff; --doc-bg-soft: #f9fafb; --doc-border: #e5e7eb; --doc-primary: #4f46e5;
+    --sp-xs: 8px; --sp-sm: 16px; --sp-md: 24px; --sp-lg: 40px;
+}
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; margin: 0; background: var(--doc-bg); color: var(--doc-text); line-height: 1.7; }
+a { color: var(--doc-primary); text-decoration: none; }
+code { background: var(--doc-bg-soft); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em; color: #be185d; }
+table { width: 100%; border-collapse: collapse; margin: var(--sp-sm) 0; }
+th, td { padding: 10px 14px; border: 1px solid var(--doc-border); text-align: left; vertical-align: middle; }
+th { background: var(--doc-bg-soft); font-weight: 600; }
+#doc-nav { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; overflow-y: auto; padding: var(--sp-md) var(--sp-sm); background: var(--doc-bg-soft); border-right: 1px solid var(--doc-border); }
+#doc-nav .nav-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+#doc-nav .nav-subtitle { font-size: 12px; color: var(--doc-text-muted); margin-bottom: var(--sp-md); }
+#doc-nav a { display: block; padding: 8px 12px; color: var(--doc-text-light); border-radius: 6px; font-size: 14px; }
+#doc-nav a:hover { background: rgba(79, 70, 229, 0.08); color: var(--doc-primary); text-decoration: none; }
+#doc-main { margin-left: 240px; padding: var(--sp-lg) 48px var(--sp-xl); max-width: 1200px; }
+@media (max-width: 768px) { #doc-nav { display: none; } #doc-main { margin-left: 0; padding: var(--sp-md) var(--sp-sm); } }
+section { margin-bottom: var(--sp-xl); }
+h1 { font-size: 32px; margin: 0 0 var(--sp-sm) 0; }
+h2 { font-size: 24px; margin: var(--sp-lg) 0 var(--sp-md); padding-bottom: var(--sp-xs); border-bottom: 2px solid var(--doc-border); }
+h3 { font-size: 18px; margin: var(--sp-md) 0 var(--sp-sm); color: var(--doc-primary); }
+.feature-desc { background: var(--doc-bg-soft); border-left: 4px solid var(--doc-primary); padding: var(--sp-sm) var(--sp-md); margin-bottom: var(--sp-md); border-radius: 4px; }
+.interaction-desc { background: #fef3c7; border-left: 4px solid var(--warning); padding: var(--sp-sm) var(--sp-md); margin: var(--sp-md) 0; border-radius: 4px; font-size: 14px; }
+.interaction-desc strong { color: #92400e; }
+.prototype { margin: var(--sp-md) 0; border: 2px dashed var(--doc-border); border-radius: var(--radius-card); overflow: hidden; }
+.proto-label { background: var(--doc-bg-soft); padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--doc-text-muted); border-bottom: 1px solid var(--doc-border); }
+.proto-container { background: var(--bg); color: var(--text); min-height: 400px; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+#changelog th { background: var(--doc-bg-soft); }
+.big-change { background: linear-gradient(135deg, #f0f9ff, #e0e7ff); border: 2px solid var(--doc-primary); border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+.big-change h3 { color: var(--doc-primary); margin-top: 0; }
+</style>
+</head>
+<body>
+
+<aside id="doc-nav">
+    <div class="nav-title">漫剧剪辑师</div>
+    <div class="nav-subtitle">v3 · 步骤精简 + 多次合成</div>
+    <a href="#changelog-v3">v3 关键变更</a>
+    <a href="#overview">流程总览</a>
+    <a href="#module-login">M1 登录注册</a>
+    <a href="#module-projects">M2 项目列表</a>
+    <a href="#module-episodes">M3 剧集管理</a>
+    <a href="#step1-overview">Step 1 创作信息（合并）</a>
+    <a href="#step1-info">└ 基础信息表单</a>
+    <a href="#step1-ai">└ AI 拆解与搜索</a>
+    <a href="#step1-script">└ 口播长文生成</a>
+    <a href="#step2-overview">Step 2 音视频素材（合并）</a>
+    <a href="#step2-tts">└ TTS 音频合成</a>
+    <a href="#step2-marks">└ 视频标记（13列表格）</a>
+    <a href="#step2-preview">└ 虚拟预览 + 裁切</a>
+    <a href="#step3">Step 3 合成</a>
+    <a href="#complete">🎬 完成页（多次合成）</a>
+    <a href="#module-profile">M5 个人中心</a>
+    <a href="#module-membership">M6 会员中心</a>
+    <a href="#module-admin">M7 管理员后台</a>
+</aside>
+
+<main id="doc-main">
+
+<h1>漫剧剪辑师 · 设计文档 v3</h1>
+<p style="color: var(--doc-text-muted);">
+    2026-09-08 · 基于旧版 3.0 验证 + 用户反馈 · <strong>3 步骤 + 完成页</strong> 重构
+</p>
+
+<!-- v3 关键变更 -->
+<section id="changelog-v3">
+<div class="big-change">
+<h3>🔄 v3 关键变更（基于用户反馈 + 旧版源码验证）</h3>
+<ol>
+<li><strong>步骤从 7 个合并为 3 个</strong>：经查证旧版 <code>static/index.html</code> 第 1985 行 <code>STEP_NAMES = ['', '创作信息', '口播长文', '音视频素材']</code>，确认旧版实际就是 3 个主步骤。新版对齐此设计：
+<ul>
+<li><strong>Step 1 创作信息</strong> = 原 Step1（基础表单）+ Step2（AI拆解+搜索）+ Step3（口播长文）</li>
+<li><strong>Step 2 音视频素材</strong> = 原 Step4（TTS + 视频标记）+ Step5（虚拟预览）+ Step6（裁切合并）</li>
+<li><strong>Step 3 合成</strong> = 原 Step7</li>
+</ul>
+</li>
+<li><strong>新增"完成页"</strong>（旧版没有的概念）：<strong>多次合成可回看与下载</strong>，方便用户返回上一步微调再合成</li>
+<li><strong>步骤内子模块用标签页（Tabs）组织</strong>，而不是硬切页面跳转</li>
+</ol>
+</div>
+</section>
+
+<!-- 流程总览 -->
+<section id="overview">
+<h2>流程总览</h2>
+
+<div class="feature-desc">
+<strong>核心设计原则：</strong> <strong>更少的页面跳转 · 更高的修改自由度 · 支持反复合成</strong>
+</div>
+
+<h3>新版 3 步骤流程图</h3>
+<div style="background: var(--doc-bg-soft); padding: 24px; border-radius: 8px; font-family: monospace; line-height: 2; font-size: 13px;">
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 1 · 创作信息（内部含 3 个子模块）                              │
+│  ┌──────────────┬──────────────┬──────────────┐                  │
+│  │ 基础信息表单  │ AI拆解+搜索   │ 口播长文生成  │ ← 可来回切换      │
+│  │  标题/风格   │ 关键词/文章  │  可编辑修改    │                  │
+│  └──────────────┴──────────────┴──────────────┘                  │
+└─────────────────────────────┬───────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 2 · 音视频素材（内部含 3 个子模块）                            │
+│  ┌──────────────┬──────────────┬──────────────┐                  │
+│  │  TTS 音频合成  │ 视频标记列表  │ 虚拟预览+裁切  │ ← 可来回切换      │
+│  │  选引擎/试听  │ 13列精细调整  │  0IO预览后裁切 │                  │
+│  └──────────────┴──────────────┴──────────────┘                  │
+└─────────────────────────────┬───────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 3 · 合成（ffmpeg + 字幕烧录）                                  │
+└─────────────────────────────┬───────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  🎬 完成页（关键创新 · 多次合成）                                    │
+│  • 展示当前最新合成 + 全部历史合成列表                                │
+│  • 每个合成：预览/下载/回看配置                                       │
+│  • 一键「返回上一步继续编辑」→ 修改后再合成（生成新记录）                │
+│  • "直接点击最新合成" → 进入编辑模式（保留可重用性）                   │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>与旧版对比</h3>
+<table>
+<tr><th>维度</th><th>旧版 v3.0</th><th>新版 v4.0（v3 设计）</th></tr>
+<tr><td>步骤数</td><td>3 个</td><td>3 个</td></tr>
+<tr><td>步骤内子模块</td><td>单页（无 Tab）</td><td>Tab 切换</td></tr>
+<tr><td>完成页</td><td>单次合成展示</td><td><strong>多次合成列表</strong> + 每次可回看/下载/编辑</td></tr>
+<tr><td>返回上一步</td><td>可，但需重新跑 Step1~3</td><td>可，<strong>保留历史合成</strong>，新合成为新记录</td></tr>
+<tr><td>企业版适配</td><td>个人本地工具</td><td><strong>会员体系 + 管理员后台</strong>（v4.0 新增）</td></tr>
+</table>
+</section>
+
+<!-- M1 登录注册（不变）-->
+<section id="module-login">
+<h2>M1 · 登录注册</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-login">v1 M1</a></p>
+</section>
+
+<!-- M2 项目列表（不变）-->
+<section id="module-projects">
+<h2>M2 · 项目列表</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-projects">v1 M2</a></p>
+</section>
+
+<!-- M3 剧集管理（不变）-->
+<section id="module-episodes">
+<h2>M3 · 剧集管理</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-episodes">v1 M3</a></p>
+</section>
+
+<!-- ============================================================
+     Step 1 创作信息
+     ============================================================ -->
+<section id="step1-overview">
+<h2>Step 1 · 创作信息</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 一次性完成"基础信息 + AI 智能 + 文字内容"，比旧版更紧凑。<br>
+<strong>内部结构：</strong> 3 个 Tab 可来回切换（基础信息 / AI拆解+搜索 / 口播长文）<br>
+<strong>完成标志：</strong> 3 个子模块都有结果即可进入 Step 2
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">Step 1 · 顶部 Tab + 当前子模块内容</div>
+<div class="proto-container" style="padding:24px; min-height:500px;">
+
+<!-- 顶部 Tab -->
+<div style="display:flex; border-bottom:2px solid var(--border); margin-bottom:20px;">
+<div style="padding:12px 20px; color:var(--primary); border-bottom:2px solid var(--primary); font-weight:600; cursor:pointer;">
+1. 基础信息 ✓
+</div>
+<div style="padding:12px 20px; color:var(--text); border-bottom:2px solid transparent; cursor:pointer; font-weight:600;">
+2. AI 拆解与搜索 ✓
+</div>
+<div style="padding:12px 20px; color:var(--text); border-bottom:2px solid transparent; cursor:pointer; font-weight:600;">
+3. 口播长文
+<span style="background:var(--primary-dim); color:white; padding:2px 8px; border-radius:10px; font-size:11px; margin-left:6px;">编辑中</span>
+</div>
+</div>
+
+<!-- 当前子模块内容（口播长文 Tab） -->
+<div>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:24px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+<h4 style="color:var(--text); margin:0;">📝 口播长文</h4>
+<div style="display:flex; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px;">📋 大纲</button>
+<button style="background:var(--accent); color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px;">🔄 重新生成</button>
+</div>
+</div>
+<textarea style="width:100%; min-height:200px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:12px; border-radius:6px; font-family:inherit; line-height:1.8;">"你是否想过，曾经的天才如何跌落神坛？...
+
+今天我们来聊一聊《斗破苍穹》这部神作。在斗气大陆上...
+
+关注我，下期更精彩！"</textarea>
+<div style="margin-top:8px; font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between;">
+<span>字数: 187 · 预计 TTS 时长: 48 秒</span>
+<span>💡 编辑完成后点击下方"保存并继续"</span>
+</div>
+</div>
+
+<div style="display:flex; justify-content:space-between; margin-top:20px;">
+<button style="background:var(--surface-2); color:var(--text-secondary); border:1px solid var(--border); padding:10px 20px; border-radius:var(--radius-btn); cursor:pointer; font-size:13px;">← 上一步：AI拆解</button>
+<button style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:var(--radius-btn); cursor:pointer; font-size:13px;">保存并进入 Step 2 →</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>Tab 切换规则：</strong>
+<ul>
+<li>已完成 Tab：紫色 ✓ 标记，可来回切换修改</li>
+<li>当前 Tab：紫色下划线</li>
+<li>未完成 Tab：灰色，不可点击</li>
+<li>Tab 顺序：基础信息 → AI拆解 → 口播长文</li>
+</ul>
+<strong>解锁规则：</strong>
+<ul>
+<li>必须按顺序：填基础信息 → AI拆解 → 口播长文</li>
+<li>每个子模块保存后 → 自动解锁下一个子</li>
+<li>任意子模块保存都算"Step 1 已完成"，可进入 Step 2</li>
+</ul>
+<strong>"保存并进入 Step 2"按钮：</strong>
+<ul>
+<li>前提：3 个子模块都有结果（满足任一即可进入，但强烈建议全部完成）</li>
+<li>点击后：保存所有子模块 → 跳 Step 2</li>
+<li>返回后修改：可来回切换 3 个 Tab 修改已保存内容</li>
+</ul>
+</div>
+</section>
+
+<!-- Step 1 子模块：基础信息 -->
+<section id="step1-info">
+<h2>Step 1.1 · 基础信息表单</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step1">v1 M5</a>（基础表单部分基本一致）</p>
+<div class="feature-desc">
+<strong>字段：</strong> 创作标题 * / 推广风格（热血安利/客观测评/悬念种草/剧情向）/ 目标时长(秒,20-300) / 作者署名 / 备注<br>
+<strong>关联：</strong> 关联剧集（多选 chip 样式）/ 关联文本（从剧集资料自动带入）
+</div>
+</section>
+
+<!-- Step 1 子模块：AI 拆解 -->
+<section id="step1-ai">
+<h2>Step 1.2 · AI 拆解与搜索</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step2">v1 M6</a>（完全一致）</p>
+</section>
+
+<!-- Step 1 子模块：口播长文 -->
+<section id="step1-script">
+<h2>Step 1.3 · 口播长文生成</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step3">v1 M7</a>（完全一致）</p>
+</section>
+
+<!-- ============================================================
+     Step 2 音视频素材
+     ============================================================ -->
+<section id="step2-overview">
+<h2>Step 2 · 音视频素材</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 用户在 1 个步骤内完成"TTS 音频 + 视频标记 + 预览 + 裁切"，比旧版少 1 次页面跳转。<br>
+<strong>内部结构：</strong> 3 个 Tab（TTS / 视频标记 / 预览+裁切）<br>
+<strong>完成标志：</strong> "预览+裁切" Tab 显示"裁切完成，可进入 Step 3"
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">Step 2 · 顶部 Tab + 当前子模块（视频标记 Tab）</div>
+<div class="proto-container" style="padding:24px; min-height:600px;">
+
+<!-- 顶部 Tab -->
+<div style="display:flex; border-bottom:2px solid var(--border); margin-bottom:20px;">
+<div style="padding:12px 20px; color:var(--text); border-bottom:2px solid transparent; cursor:pointer; font-weight:600;">
+1. TTS 音频合成 ✓
+</div>
+<div style="padding:12px 20px; color:var(--primary); border-bottom:2px solid var(--primary); font-weight:600; cursor:pointer;">
+2. 视频标记
+<span style="background:var(--accent); color:white; padding:2px 8px; border-radius:10px; font-size:11px; margin-left:6px;">编辑中</span>
+</div>
+<div style="padding:12px 20px; color:var(--text-muted); border-bottom:2px solid transparent; cursor:pointer; font-weight:600; opacity:0.5;">
+3. 预览 + 裁切 🔒
+</div>
+</div>
+
+<!-- 13 列标记列表（v2 已画出，此处省略详情） -->
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+<div style="font-size:14px; color:var(--text);">📋 视频标记列表 · 共 <strong style="color:var(--primary);">8</strong> 个片段</div>
+<div style="display:flex; gap:8px;">
+<button style="background:var(--accent); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px;">▶ 同步播放</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:4px; font-size:12px;">🔀 重新标记</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:4px; font-size:12px;">+ 添加切片</button>
+</div>
+</div>
+<div style="background:var(--surface-2); padding:12px; border-radius:6px; text-align:center; color:var(--text-muted); font-size:13px;">
+【13 列表格 · 见 <a href="漫剧剪辑师-v2.html#module-step5-marks" style="color:var(--primary);">v2 M9 完整原型</a>】
+<br>顺序 / 操作 / 状态灯 / 时长 / 累计 / 源视频 / 改名 / 静音 / -1 / 开始(s) / 结束(s) / +1 / 预览/删除
+</div>
+</div>
+
+<div style="display:flex; justify-content:space-between; margin-top:20px;">
+<button style="background:var(--surface-2); color:var(--text-secondary); border:1px solid var(--border); padding:10px 20px; border-radius:var(--radius-btn); cursor:pointer;">← 上一步：TTS</button>
+<button style="background:var(--surface-2); color:var(--text-secondary); border:1px solid var(--border); padding:10px 20px; border-radius:var(--radius-btn); cursor:pointer; font-size:13px;">保存并锁定 → 预览</button>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>Tab 切换与解锁：</strong>
+<ul>
+<li>TTS 完成后 → 视频标记 Tab 解锁</li>
+<li>视频标记确认（点"保存并锁定"） → 预览+裁切 Tab 解锁</li>
+<li>裁切完成后 → Step 2 完成，可进入 Step 3</li>
+</ul>
+<strong>"保存并锁定"按钮：</strong>
+<ul>
+<li>点击后：保存当前 markers 状态 → 标记 Tab 完成 ✓</li>
+<li>仍可"解除锁定"回到编辑（不影响流程）</li>
+</ul>
+</div>
+</section>
+
+<!-- Step 2 子模块 -->
+<section id="step2-tts">
+<h2>Step 2.1 · TTS 音频合成</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step4">v1 M8 音频部分</a></p>
+</section>
+
+<section id="step2-marks">
+<h2>Step 2.2 · 视频标记（13 列 · 核心）</h2>
+<p>见 <a href="漫剧剪辑师-v2.html#module-step5-marks">v2 M9 完整原型</a></p>
+</section>
+
+<section id="step2-preview">
+<h2>Step 2.3 · 虚拟预览 + 裁切</h2>
+<p>见 <a href="漫剧剪辑师-v2.html#module-step5-preview">v2 M11 同步播放</a> + <a href="漫剧剪辑师-v1.html#module-step6">v1 M10 裁切</a></p>
+<div class="feature-desc">
+<strong>关键交互：</strong>
+<ul>
+<li>点击"开始裁切"按钮 → 长任务异步 → 进度条实时显示</li>
+<li>完成后显示"无音轨视频预览" → 提示"可进入 Step 3 合成"</li>
+<li>若裁切失败 → 提示具体错误（如某视频编码失败），可重试或回到标记调整</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     Step 3 合成
+     ============================================================ -->
+<section id="step3">
+<h2>Step 3 · 合成</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-step7">v1 M11 / v2 M13</a>（基本一致）</p>
+<div class="feature-desc">
+<strong>流程：</strong> 选分辨率 + 选烧字幕 → 点击"开始合成" → 长任务异步 → 完成后跳转<strong>完成页</strong>（不是停留 Step 3）<br>
+<strong>注：</strong> 完成后必须跳到完成页（不然用户不知道有"多次合成列表"功能）
+</div>
+</section>
+
+<!-- ============================================================
+     完成页（核心创新·多次合成）
+     ============================================================ -->
+<section id="complete">
+<h2>🎬 完成页（关键创新 · 多次合成可回看与下载）</h2>
+
+<div class="big-change">
+<h3>🔄 多次合成的核心设计</h3>
+<p>用户完成 Step 3 后，会跳到一个<strong>专门的"完成页"</strong>，而不是停留 Step 3 或回到项目列表。</p>
+<p>完成页包含：</p>
+<ol>
+<li><strong>当前最新合成</strong>（置顶高亮）</li>
+<li><strong>历史合成列表</strong>（按时间倒序，可滚动）</li>
+<li><strong>一键返回 Step 1 或 Step 2</strong>（继续修改 → 再次合成 → 生成新记录）</li>
+<li><strong>每个合成可单独预览/下载/删除</strong></li>
+</ol>
+</div>
+
+<div class="feature-desc">
+<strong>复用价值：</strong> 用户经常需要"试不同风格的合成"（不同分辨率 / 不同烧字幕开关 / 不同字幕样式）。多次合成让用户对比效果，选择最佳版本发布。<br>
+<strong>历史价值：</strong> 所有历史合成记录保留，可随时下载旧版本（防止误操作丢失）。<br>
+<strong>协作价值：</strong> 管理员/会员可看到所有历史合成，便于复盘。
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">完成页 · 当前合成置顶 + 历史合成列表</div>
+<div class="proto-container" style="padding:24px; min-height:700px;">
+
+<!-- 顶部庆祝横幅 -->
+<div style="background:linear-gradient(135deg, var(--primary), var(--accent)); border-radius:var(--radius-card); padding:24px; text-align:center; margin-bottom:20px; color:white;">
+<div style="font-size:36px; margin-bottom:8px;">🎉</div>
+<h3 style="margin:0; font-size:20px;">推广视频已生成！</h3>
+<p style="margin:8px 0 0 0; opacity:0.95;">《斗破苍穹》· 第 1 集 · 已成功合成 v3 版本</p>
+<div style="margin-top:12px; font-size:12px; opacity:0.85;">2026-09-08 14:42 · 用时 28 秒 · 12.3 MB</div>
+</div>
+
+<!-- 当前最新合成（置顶卡片） -->
+<div style="background:var(--surface); border:2px solid var(--success); border-radius:var(--radius-card); padding:20px; margin-bottom:16px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+<div>
+<span style="background:var(--success); color:white; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:600;">🆕 最新</span>
+<span style="margin-left:8px; color:var(--text); font-weight:600;">合成 v3 · 1920×1080 · 烧字幕</span>
+</div>
+<div style="display:flex; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;">📋 复制配置</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;">🔀 继续编辑 →</button>
+</div>
+</div>
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+<div style="background:#000; border-radius:8px; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; position:relative;">
+<div style="font-size:32px; color:rgba(255,255,255,0.4);">▶ 视频预览</div>
+</div>
+<div>
+<div style="font-size:14px; color:var(--text); margin-bottom:8px;">📁 final_20260908_1442.mp4</div>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">大小: 12.3 MB · 时长: 00:50 · 分辨率: 1920×1080</div>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:16px;">已烧字幕 · 参数：分辨率 1920×1080 · 字幕样式：默认</div>
+<div style="display:flex; gap:8px;">
+<button style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-size:13px;">⬇ 下载 mp4</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px 20px; border-radius:4px; cursor:pointer; font-size:13px;">📥 保存到素材目录</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- 历史合成 -->
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px; margin-bottom:20px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+<h4 style="color:var(--text); margin:0;">📚 历史合成（2）</h4>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;">🔄 对比</button>
+</div>
+<table style="width:100%; border-collapse:collapse; font-size:12px;">
+<thead>
+<tr style="background:var(--surface-2);">
+<th style="padding:8px; color:var(--text-secondary); text-align:left;">版本</th>
+<th style="padding:8px; color:var(--text-secondary); text-align:left;">时间</th>
+<th style="padding:8px; color:var(--text-secondary);">分辨率</th>
+<th style="padding:8px; color:var(--text-secondary);">字幕</th>
+<th style="padding:8px; color:var(--text-secondary);">大小</th>
+<th style="padding:8px; color:var(--text-secondary);">时长</th>
+<th style="padding:8px; color:var(--text-secondary);">操作</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:8px;"><span style="background:var(--success); color:white; padding:2px 8px; border-radius:10px; font-size:10px;">v3 🆕</span></td>
+<td style="padding:8px; color:var(--text-secondary);">2026-09-08 14:42</td>
+<td style="padding:8px; text-align:center; color:var(--text);">1920×1080</td>
+<td style="padding:8px; text-align:center; color:var(--success);">✓</td>
+<td style="padding:8px; text-align:center; color:var(--text);">12.3 MB</td>
+<td style="padding:8px; text-align:center; color:var(--text);">00:50</td>
+<td style="padding:8px; text-align:center;">[<a style="color:var(--primary); cursor:pointer; font-size:11px;">下载</a>] [<a style="color:var(--primary); cursor:pointer; font-size:11px;">预览</a>] [<a style="color:var(--primary); cursor:pointer; font-size:11px;">编辑</a>]</td>
+</tr>
+<tr style="border-top:1px solid var(--border); opacity:0.8;">
+<td style="padding:8px;"><span style="background:var(--surface-3); color:var(--text-secondary); padding:2px 8px; border-radius:10px; font-size:10px;">v2</span></td>
+<td style="padding:8px; color:var(--text-secondary);">2026-09-08 14:28</td>
+<td style="padding:8px; text-align:center; color:var(--text);">1080×1920</td>
+<td style="padding:8px; text-align:center; color:var(--text-muted);">—</td>
+<td style="padding:8px; text-align:center; color:var(--text);">8.7 MB</td>
+<td style="padding:8px; text-align:center; color:var(--text);">00:48</td>
+<td style="padding:8px; text-align:center;">[<a style="color:var(--primary); cursor:pointer; font-size:11px;">下载</a>] [<a style="color:var(--primary); cursor:pointer; font-size:11px;">预览</a>]</td>
+</tr>
+<tr style="border-top:1px solid var(--border); opacity:0.8;">
+<td style="padding:8px;"><span style="background:var(--surface-3); color:var(--text-secondary); padding:2px 8px; border-radius:10px; font-size:10px;">v1</span></td>
+<td style="padding:8px; color:var(--text-secondary);">2026-09-08 14:15</td>
+<td style="padding:8px; text-align:center; color:var(--text);">1920×1080</td>
+<td style="padding:8px; text-align:center; color:var(--success);">✓</td>
+<td style="padding:8px; text-align:center; color:var(--text);">11.8 MB</td>
+<td style="padding:8px; text-align:center; color:var(--text);">00:50</td>
+<td style="padding:8px; text-align:center;">[<a style="color:var(--primary); cursor:pointer; font-size:11px;">下载</a>]</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<!-- 操作按钮组 -->
+<div style="display:flex; justify-content:space-between; gap:8px;">
+<div style="display:flex; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:12px 20px; border-radius:var(--radius-btn); cursor:pointer;">← 返回 Step 2 修改</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:12px 20px; border-radius:var(--radius-btn); cursor:pointer;">📂 返回项目列表</button>
+</div>
+<div>
+<button style="background:var(--accent); color:white; border:none; padding:12px 24px; border-radius:var(--radius-btn); cursor:pointer; font-weight:600;">🔄 重新合成（再生成一个新版本）</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>"继续编辑 →"按钮（关键）：</strong>
+<ul>
+<li>点击后：跳回 Step 1 或 Step 2（用户选择保留哪些参数）</li>
+<li>用户改完再回来 → 点击"重新合成" → 生成新版本（v4）</li>
+<li>旧版本（v1/v2/v3）仍保留在历史列表中</li>
+</ul>
+<strong>3 种继续编辑入口（用户原话"适合编辑"）：</strong>
+<ul>
+<li>点"复制配置" → 用 v3 的所有参数（分辨率、字幕样式）新建一次合成 → 适合微调</li>
+<li>点"继续编辑 →" → 跳到 Step 1/2 改文案/标记 → 改完重新合成</li>
+<li>直接点列表中的"编辑"列 → 跳到对应 Step 编辑</li>
+</ul>
+<strong>"重新合成"按钮逻辑：</strong>
+<ul>
+<li>基于当前最新的 step_results（不是某个旧版本）</li>
+<li>用新参数合成 → 生成 v4（按版本号递增）</li>
+<li>旧版本在历史中保留，不会被覆盖</li>
+</ul>
+<strong>用户原话"多次的合成展示在合成列表中"：</strong>
+<ul>
+<li>历史列表按时间倒序（最新在上）</li>
+<li>当前选中的版本有高亮边框（绿色）</li>
+<li>每个版本独立预览/下载</li>
+<li>可"删除"（仅本人可见，且需二次确认）</li>
+</ul>
+<strong>下载方式（多选项）：</strong>
+<ul>
+<li>浏览器下载（默认）→ 保存到下载文件夹</li>
+<li>保存到素材目录（带时间戳+标题）→ 方便管理</li>
+<li>保存到指定目录（自定义）→ 高级用户</li>
+</ul>
+</div>
+</section>
+
+<!-- M5~M7 不变 -->
+<section id="module-profile">
+<h2>M5 · 个人中心</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-profile">v1 M12</a></p>
+</section>
+
+<section id="module-membership">
+<h2>M6 · 会员中心</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-membership">v1 M13</a></p>
+</section>
+
+<section id="module-admin">
+<h2>M7 · 管理员后台</h2>
+<p>见 <a href="漫剧剪辑师-v1.html#module-admin">v1 M14</a></p>
+</section>
+
+<!-- 变更记录 -->
+<section id="changelog">
+<h2>变更记录</h2>
+<table>
+<tr><th>日期</th><th>版本</th><th>变更内容</th></tr>
+<tr><td>2026-09-08</td><td>v3.0</td><td><strong>重大重构：</strong>基于用户反馈 + 旧版源码验证。<br>- 步骤从 7 个合并为 3 个（Step1 创作信息 / Step2 音视频素材 / Step3 合成）<br>- 每个大步骤内用 Tab 切换子模块<br>- <strong>新增完成页</strong>：多次合成列表 + 当前置顶 + 一键返回编辑<br>- 每个合成独立预览/下载/编辑按钮<br>- 删除了原"单次返回上一步"流程（v1/v2 假设）<br>- 链接 v1/v2 中未变化的模块（M1-M3, M5-M7, M9-M10）</td></tr>
+<tr><td>2026-09-08</td><td>v2.0</td><td>Step5 核心交互细化（13 列表格 + 编辑弹窗 + 同步播放伪代码）</td></tr>
+<tr><td>2026-09-08</td><td>v1.0</td><td>初版（14 模块原型）</td></tr>
+</table>
+</section>
+
+</main>
+</body>
+</html>

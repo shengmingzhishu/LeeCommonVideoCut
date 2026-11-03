@@ -1,0 +1,30 @@
+graph TD
+    %% Mermaid 依赖关系图模板
+
+    %% 使用说明：
+    %% 1. 节点格式: NodeName[显示文本]
+    %% 2. 边格式: NodeA --> NodeB
+    %% 3. 样式定制: style NodeName fill:#color
+
+    %% 示例节点
+    Root[项目根目录]
+    src[src/]
+    components[components/]
+    utils[utils/]
+    dependencies[依赖库]
+
+    %% 示例边
+    Root --> src
+    src --> components
+    src --> utils
+    Root --> dependencies
+
+    %% 样式定制
+    style Root fill:#667eea,stroke:#white,stroke-width:2px,color:#fff
+    style src fill:#764ba2,stroke:#white,stroke-width:2px,color:#fff
+    style components fill:#f093fb,stroke:#white,stroke-width:2px
+    style utils fill:#f5576c,stroke:#white,stroke-width:2px
+    style dependencies fill:#4facfe,stroke:#white,stroke-width:2px,color:#fff
+
+    %% 备注
+    %% 此模板仅为示例，实际节点和边将由分析器动态生成

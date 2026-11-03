@@ -1,0 +1,87 @@
+import functools
+import threading
+
+from collections import defaultdict
+from sqlalchemy import create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker, declarative_base
+from contextlib import contextmanager
+from {{ project_name }}.utils import singleton
+from {{ project_name }}.utils.env import DATABASE_CONFIG
+
+Base = declarative_base()
+
+DB_ENGINE = create_engine(
+    DATABASE_CONFIG['db_engine_url'], **DATABASE_CONFIG['engine_setting'])
+
+@singleton
+class SessionInstanceManager:
+    def __init__(self):
+        self.__session_maker = sessionmaker(bind=DB_ENGINE, expire_on_commit=False)
+        self.session_type = scoped_session(self.__session_maker)
+        self.task_locals = defaultdict(list)
+
+    @contextmanager
+    def use(self):
+        task_id = id(threading.current_thread())
+        self.task_locals[task_id].append(self.session_type())
+        session = self.task_locals[task_id][-1]
+        try:
+            yield session
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            if task_id in self.task_locals and len(self.task_locals[task_id]) > 0:
+                self.task_locals[task_id].pop()
+                if len(self.task_locals[task_id]) == 0:
+                    del self.task_locals[task_id]
+            session.close()
+
+    @contextmanager
+    def use_transaction(self):
+        task_id = id(threading.current_thread())
+        with self.session_type() as session:
+            with session.begin():
+                self.task_locals[task_id].append(session)
+                try:
+                    yield session
+                finally:
+                    if task_id in self.task_locals and len(self.task_locals[task_id]) > 0:
+                        self.task_locals[task_id].pop()
+                        if len(self.task_locals[task_id]) == 0:
+                            del self.task_locals[task_id]
+
+    def get(self):
+        task_id = id(threading.current_thread())
+        session = self.task_locals[task_id][-1]
+        assert session is not None, 'no orm manager is in use'
+        return session
+
+
+def use_db_session(function):
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        with SessionInstanceManager().use():
+            ret = function(*args, **kwargs)
+        return ret
+    return wrapper
+
+
+def use_db_transaction(function):
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        with SessionInstanceManager().use_transaction():
+            ret = function(*args, **kwargs)
+        return ret
+    return wrapper
+
+
+def with_db_session(function):
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        assert 'session' not in kwargs, '"session" keyword has been occupied'
+        kwargs.update({'session': SessionInstanceManager().get()})
+        ret = function(*args, **kwargs)
+        return ret
+    return wrapper

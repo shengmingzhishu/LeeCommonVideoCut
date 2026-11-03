@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漫剧剪辑师 · 设计文档 v1</title>
+<style>
+/* ============================================================
+   文档全局样式（参考 ui-ux-pro-max：SaaS/工具 + 数据仪表盘混合）
+   ============================================================ */
+:root {
+    /* 颜色（沿用旧版 static/index.css 暗色变量，保证 1:1 复刻） */
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #21252f;
+    --surface-3: #2a2f3d;
+    --border: #2d3142;
+    --border-light: #3a3f52;
+    --text: #e4e7ec;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --primary: #7c3aed;
+    --primary-hover: #8b5cf6;
+    --primary-dim: #6d28d9;
+    --accent: #D85A30;
+    --accent-hover: #e96a3f;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --info: #3b82f6;
+    --radius-card: 12px;
+    --radius-btn: 8px;
+    --radius-input: 8px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.4);
+    --transition: 0.2s ease;
+    /* 设计文档本身的变量（不同于产品暗色主题） */
+    --doc-text: #1a1a2e;
+    --doc-text-light: #4b5563;
+    --doc-text-muted: #6b7280;
+    --doc-bg: #ffffff;
+    --doc-bg-soft: #f9fafb;
+    --doc-border: #e5e7eb;
+    --doc-primary: #4f46e5;
+    --sp-xs: 8px;
+    --sp-sm: 16px;
+    --sp-md: 24px;
+    --sp-lg: 40px;
+    --sp-xl: 64px;
+}
+
+/* 文档正文 */
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    margin: 0;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    line-height: 1.7;
+}
+a { color: var(--doc-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+    background: var(--doc-bg-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: #be185d;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--sp-sm) 0;
+}
+th, td {
+    padding: 10px 14px;
+    border: 1px solid var(--doc-border);
+    text-align: left;
+}
+th {
+    background: var(--doc-bg-soft);
+    font-weight: 600;
+}
+
+/* ============================================================
+   左侧导航栏（固定，docs-design 规范）
+   ============================================================ */
+#doc-nav {
+    position: fixed; top: 0; left: 0; width: 240px; height: 100vh;
+    overflow-y: auto; padding: var(--sp-md) var(--sp-sm);
+    background: var(--doc-bg-soft); border-right: 1px solid var(--doc-border);
+}
+#doc-nav .nav-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--doc-text);
+}
+#doc-nav .nav-subtitle {
+    font-size: 12px;
+    color: var(--doc-text-muted);
+    margin-bottom: var(--sp-md);
+}
+#doc-nav a {
+    display: block;
+    padding: 8px 12px;
+    color: var(--doc-text-light);
+    border-radius: 6px;
+    font-size: 14px;
+    transition: var(--transition);
+}
+#doc-nav a:hover {
+    background: rgba(79, 70, 229, 0.08);
+    color: var(--doc-primary);
+    text-decoration: none;
+}
+#doc-main {
+    margin-left: 240px;
+    padding: var(--sp-lg) 48px var(--sp-xl);
+    max-width: 1100px;
+}
+@media (max-width: 768px) {
+    #doc-nav { display: none; }
+    #doc-main { margin-left: 0; padding: var(--sp-md) var(--sp-sm); }
+}
+
+/* ============================================================
+   文档内区块
+   ============================================================ */
+section { margin-bottom: var(--sp-xl); }
+h1 {
+    font-size: 32px;
+    margin: 0 0 var(--sp-sm) 0;
+}
+h2 {
+    font-size: 24px;
+    margin: var(--sp-lg) 0 var(--sp-md);
+    padding-bottom: var(--sp-xs);
+    border-bottom: 2px solid var(--doc-border);
+}
+h3 {
+    font-size: 18px;
+    margin: var(--sp-md) 0 var(--sp-sm);
+    color: var(--doc-primary);
+}
+.feature-desc {
+    background: var(--doc-bg-soft);
+    border-left: 4px solid var(--doc-primary);
+    padding: var(--sp-sm) var(--sp-md);
+    margin-bottom: var(--sp-md);
+    border-radius: 4px;
+}
+.interaction-desc {
+    background: #fef3c7;
+    border-left: 4px solid var(--warning);
+    padding: var(--sp-sm) var(--sp-md);
+    margin: var(--sp-md) 0;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.interaction-desc strong { color: #92400e; }
+
+/* 原型容器 */
+.prototype {
+    margin: var(--sp-md) 0;
+    border: 2px dashed var(--doc-border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+}
+.proto-label {
+    background: var(--doc-bg-soft);
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--doc-text-muted);
+    border-bottom: 1px solid var(--doc-border);
+}
+.proto-container {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 400px;
+}
+
+/* 变更记录 */
+#changelog th { background: var(--doc-bg-soft); }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     左侧导航栏
+     ============================================================ -->
+<aside id="doc-nav">
+    <div class="nav-title">漫剧剪辑师</div>
+    <div class="nav-subtitle">前后端分离 v4.0 设计文档 v1</div>
+
+    <a href="#overview">项目概述</a>
+    <a href="#design-system">设计系统</a>
+
+    <a href="#module-login">M1 · 登录注册</a>
+    <a href="#module-projects">M2 · 项目列表</a>
+    <a href="#module-episodes">M3 · 剧集管理</a>
+    <a href="#module-creations">M4 · 创作流程</a>
+    <a href="#module-step1">M5 · Step1 输入</a>
+    <a href="#module-step2">M6 · Step2 拆解+搜索</a>
+    <a href="#module-step3">M7 · Step3 口播长文</a>
+    <a href="#module-step4">M8 · Step4 双线并行</a>
+    <a href="#module-step5">M9 · Step5 虚拟预览</a>
+    <a href="#module-step6">M10 · Step6 裁切合并</a>
+    <a href="#module-step7">M11 · Step7 合成导出</a>
+    <a href="#module-profile">M12 · 个人中心</a>
+    <a href="#module-membership">M13 · 会员中心</a>
+    <a href="#module-admin">M14 · 管理员后台</a>
+
+    <a href="#changelog">变更记录</a>
+</aside>
+
+<!-- ============================================================
+     主内容区
+     ============================================================ -->
+<main id="doc-main">
+
+<h1>漫剧剪辑师 · 设计文档 v1</h1>
+<p style="color: var(--doc-text-muted);">
+    2026-09-08 · cut-web 项目设计 · 前后端分离架构
+</p>
+
+<!-- ============================================================
+     项目概述
+     ============================================================ -->
+<section id="overview">
+<h2>项目概述</h2>
+
+<div class="feature-desc">
+<strong>项目名：</strong> cut-web（漫剧推广素材剪辑师前端）<br>
+<strong>目标：</strong> 基于旧版 <code>AI漫剧剪辑师旧参考项目代码/static/index.html</code> 重写为 React + TS + Vite + AntD + Zustand 的前后端分离应用。<br>
+<strong>业务核心：</strong> 7 步视频剪辑向导（输入 → AI 拆解 → 口播文案 → 双线并行 → 虚拟预览 → 裁切合并 → 合成导出）<br>
+<strong>用户体系：</strong> 注册/登录、个人中心、会员等级（Free/Pro/Enterprise）、管理员后台<br>
+<strong>设计原则：</strong> 1:1 复刻旧版视觉风格（深色主题 / 紫色主调 / 橙色强调），不"设计升级"
+</div>
+
+<h3>技术栈</h3>
+<table>
+<tr><th>类别</th><th>选型</th></tr>
+<tr><td>语言</td><td>TypeScript 5+（strict 模式）</td></tr>
+<tr><td>UI 框架</td><td>React 18（函数组件 + Hooks）</td></tr>
+<tr><td>构建</td><td>Vite 5</td></tr>
+<tr><td>组件库</td><td>Ant Design 5（CSS 变量覆盖为暗色主题）</td></tr>
+<tr><td>路由</td><td>React Router v6（懒加载）</td></tr>
+<tr><td>状态</td><td>Zustand（轻量全局状态）</td></tr>
+<tr><td>HTTP</td><td>axios + 拦截器（traceId/token/错误统一处理）</td></tr>
+<tr><td>样式</td><td>CSS Modules + Sass（沿用旧版 CSS 变量）</td></tr>
+<tr><td>图表</td><td>ECharts（按需引入，股票模块预留位）</td></tr>
+<tr><td>测试</td><td>Vitest + Playwright</td></tr>
+</table>
+
+<h3>核心数据流</h3>
+<div style="background: var(--doc-bg-soft); padding: 16px; border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.8;">
+用户操作 → axios 请求 → JWT 拦截器注入 token<br>
+        ↓<br>
+后端 controller → service → manager → model<br>
+        ↓<br>
+异步任务（如 TTS/ffmpeg）→ task_id → 前端轮询 → 进度展示<br>
+        ↓<br>
+Step 结果 → step_results 表（version 自增）→ 生成历史快照 generation_history
+</div>
+
+<h3>显式排除（NOT in scope）</h3>
+<ul>
+<li>❌ 关注系统、粉丝、动态流</li>
+<li>❌ 股票行情、自选股、K 线</li>
+<li>❌ 完整 RBAC（角色-权限-资源）</li>
+<li>❌ 在线支付集成</li>
+<li>❌ 公开用户主页 / 评论 / 点赞</li>
+<li>❌ 邮件 / 短信通知</li>
+</ul>
+</section>
+
+<!-- ============================================================
+     设计系统
+     ============================================================ -->
+<section id="design-system">
+<h2>设计系统（Design System）</h2>
+
+<h3>视觉风格</h3>
+<div class="feature-desc">
+<strong>风格：</strong> Dark Mode 数据仪表盘（沿用旧版 <code>static/index.html</code> 暗色主题）<br>
+<strong>主色：</strong> 紫色（<code>#7c3aed</code>）+ 橙色强调（<code>#D85A30</code>）<br>
+<strong>字体：</strong> <code>-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif</code>
+</div>
+
+<h3>颜色变量（CSS 变量）</h3>
+<table>
+<tr><th>变量</th><th>值</th><th>用途</th></tr>
+<tr><td><code>--bg</code></td><td><code>#0f1117</code></td><td>页面背景</td></tr>
+<tr><td><code>--surface</code></td><td><code>#1a1d27</code></td><td>卡片表面</td></tr>
+<tr><td><code>--surface-2</code></td><td><code>#21252f</code></td><td>次级表面</td></tr>
+<tr><td><code>--surface-3</code></td><td><code>#2a2f3d</code></td><td>三级表面</td></tr>
+<tr><td><code>--primary</code></td><td><code>#7c3aed</code></td><td>主色（按钮、链接、激活态）</td></tr>
+<tr><td><code>--accent</code></td><td><code>#D85A30</code></td><td>强调色（关键操作按钮，如"生成"、"导出"）</td></tr>
+<tr><td><code>--success</code></td><td><code>#10b981</code></td><td>成功</td></tr>
+<tr><td><code>--warning</code></td><td><code>#f59e0b</code></td><td>警告</td></tr>
+<tr><td><code>--error</code></td><td><code>#ef4444</code></td><td>错误</td></tr>
+</table>
+
+<h3>间距系统（8px 网格）</h3>
+<p>统一使用 8px 网格：<code>--sp-xs: 8px</code> · <code>--sp-sm: 16px</code> · <code>--sp-md: 24px</code> · <code>--sp-lg: 40px</code> · <code>--sp-xl: 64px</code></p>
+
+<h3>圆角</h3>
+<p><code>--radius-card: 12px</code>（卡片） · <code>--radius-btn: 8px</code>（按钮） · <code>--radius-input: 8px</code>（输入框）</p>
+
+<h3>Ant Design 主题 Token 覆盖</h3>
+<pre style="background: var(--doc-bg-soft); padding: 16px; border-radius: 8px; overflow-x: auto;"><code>{
+  "token": {
+    "colorPrimary": "#7c3aed",
+    "colorBgBase": "#0f1117",
+    "colorTextBase": "#e4e7ec",
+    "borderRadius": 8
+  },
+  "components": {
+    "Button": { "colorPrimary": "#7c3aed" },
+    "Layout": { "headerBg": "#1a1d27", "bodyBg": "#0f1117" },
+    "Card": { "colorBgContainer": "#1a1d27" }
+  }
+}</code></pre>
+
+<h3>图标规范</h3>
+<ul>
+<li>❌ 禁止用 emoji 当图标</li>
+<li>✅ 用内联 SVG（Heroicons / Lucide），统一 <code>viewBox="0 0 24 24"</code></li>
+<li>Header Logo 例外（用文字"漫"，与旧版一致）</li>
+</ul>
+</section>
+
+<!-- ============================================================
+     M1 · 登录注册
+     ============================================================ -->
+<section id="module-login">
+<h2>M1 · 登录注册</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 用户注册并登录 JWT，获取 token 后访问受保护资源。<br>
+<strong>页面：</strong> /login、/register<br>
+<strong>交互流程：</strong> 注册成功后自动登录 → 跳转项目列表
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">M1-1 · 登录页（沿用旧版深色卡片）</div>
+<div class="proto-container">
+<style>
+.proto-login { padding: 60px 24px; min-height: 500px; display: flex; align-items: center; justify-content: center; font-family: -apple-system, sans-serif; }
+.proto-login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 40px; width: 100%; max-width: 420px; box-shadow: var(--shadow-lg); }
+.proto-login h2 { color: var(--text); font-size: 24px; margin: 0 0 8px 0; border: none; padding: 0; }
+.proto-login .subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 32px; }
+.proto-login .form-group { margin-bottom: 16px; }
+.proto-login label { display: block; color: var(--text); font-size: 13px; margin-bottom: 6px; }
+.proto-login input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: var(--radius-input); font-size: 14px; box-sizing: border-box; }
+.proto-login input:focus { outline: none; border-color: var(--primary); }
+.proto-login .btn-primary { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: var(--radius-btn); font-size: 14px; cursor: pointer; margin-top: 8px; }
+.proto-login .btn-primary:hover { background: var(--primary-hover); }
+.proto-login .btn-link { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 13px; margin-top: 16px; display: block; text-align: center; width: 100%; }
+</style>
+<div class="proto-login">
+<div class="proto-login-card">
+<h2>登录</h2>
+<div class="subtitle">漫剧推广素材剪辑师</div>
+<div class="form-group">
+<label>用户名</label>
+<input type="text" placeholder="请输入用户名" value="zhangsan">
+</div>
+<div class="form-group">
+<label>密码</label>
+<input type="password" placeholder="请输入密码" value="********">
+</div>
+<button class="btn-primary">登录</button>
+<button class="btn-link">没有账号？立即注册</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>关键交互：</strong>
+<ul>
+<li>点击"登录"按钮：表单校验 → POST /api/auth/login → 成功跳转 /projects</li>
+<li>点击"立即注册"：跳转 /register 页</li>
+<li>失败提示：表单下方红字提示（如"用户名或密码错误"）</li>
+<li>回车键 = 提交表单</li>
+<li>3 次失败后 60 秒内禁止登录（防爆破）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M2 · 项目列表
+     ============================================================ -->
+<section id="module-projects">
+<h2>M2 · 项目列表</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 项目是漫剧剪辑的最高级容器，所有剧集与创作归属其中。<br>
+<strong>页面：</strong> /projects（首页）<br>
+<strong>关键操作：</strong> 新建、编辑、复制、删除、搜索、筛选、分页
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">M2-1 · 项目列表页（卡片网格 + 分页）</div>
+<div class="proto-container">
+<style>
+.proto-projects { padding: 24px; min-height: 600px; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; }
+.proto-projects-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.proto-projects-title { font-size: 22px; font-weight: 600; }
+.proto-projects-actions { display: flex; gap: 12px; align-items: center; }
+.proto-projects-search { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: var(--radius-input); font-size: 13px; width: 220px; }
+.proto-btn { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); padding: 8px 16px; border-radius: var(--radius-btn); cursor: pointer; font-size: 13px; }
+.proto-btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+.proto-projects-filter { display: flex; gap: 8px; margin-bottom: 16px; }
+.proto-chip { padding: 4px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; font-size: 12px; cursor: pointer; color: var(--text-secondary); }
+.proto-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+.proto-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.proto-project-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 20px; cursor: pointer; transition: var(--transition); position: relative; }
+.proto-project-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow); }
+.proto-project-cover { font-size: 40px; margin-bottom: 12px; }
+.proto-project-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.proto-project-author { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+.proto-project-meta { font-size: 11px; color: var(--text-muted); }
+.proto-project-menu { position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; background: var(--surface-2); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; }
+</style>
+<div class="proto-projects">
+<div class="proto-projects-header">
+<div class="proto-projects-title">我的漫剧项目</div>
+<div class="proto-projects-actions">
+<input type="text" class="proto-projects-search" placeholder="🔍 搜索项目">
+<button class="proto-btn proto-btn-primary">+ 新建项目</button>
+</div>
+</div>
+<div class="proto-projects-filter">
+<div class="proto-chip active">全部</div>
+<div class="proto-chip">已归档</div>
+</div>
+<div class="proto-projects-grid">
+<div class="proto-project-card">
+<div class="proto-project-menu">⋮</div>
+<div class="proto-project-cover">🎬</div>
+<div class="proto-project-title">斗破苍穹</div>
+<div class="proto-project-author">天蚕土豆</div>
+<div class="proto-project-meta">3 集 · 12 个创作 · 2 天前</div>
+</div>
+<div class="proto-project-card">
+<div class="proto-project-menu">⋮</div>
+<div class="proto-project-cover">📺</div>
+<div class="proto-project-title">完美世界</div>
+<div class="proto-project-author">辰东</div>
+<div class="proto-project-meta">5 集 · 20 个创作 · 5 天前</div>
+</div>
+<div class="proto-project-card">
+<div class="proto-project-menu">⋮</div>
+<div class="proto-project-cover">🎭</div>
+<div class="proto-project-title">凡人修仙传</div>
+<div class="proto-project-author">忘语</div>
+<div class="proto-project-meta">2 集 · 8 个创作 · 1 周前</div>
+</div>
+<div class="proto-project-card">
+<div class="proto-project-menu">⋮</div>
+<div class="proto-project-cover">📖</div>
+<div class="proto-project-title">仙逆</div>
+<div class="proto-project-author">耳根</div>
+<div class="proto-project-meta">1 集 · 4 个创作 · 2 周前</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>卡片交互：</strong>
+<ul>
+<li>点击卡片正文：进入 /projects/{id}（项目详情）</li>
+<li>右上角 ⋮ 菜单：编辑 / 复制 / 删除 / 归档</li>
+<li>悬停高亮边框（紫色）+ 上移 2px + 阴影</li>
+<li>封面 emoji 可在编辑项目时改</li>
+</ul>
+<strong>新建项目弹窗：</strong> 见 M2-2
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">M2-2 · 新建项目弹窗</div>
+<div class="proto-container">
+<style>
+.proto-modal-bg { position: relative; min-height: 600px; padding: 60px; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-family: -apple-system, sans-serif; }
+.proto-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 24px; width: 480px; max-width: 100%; }
+.proto-modal-title { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 20px; }
+.proto-modal label { display: block; color: var(--text); font-size: 13px; margin-bottom: 6px; margin-top: 12px; }
+.proto-modal input, .proto-modal textarea, .proto-modal select { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: var(--radius-input); font-size: 14px; box-sizing: border-box; font-family: inherit; }
+.proto-modal textarea { resize: vertical; min-height: 80px; }
+.proto-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+</style>
+<div class="proto-modal-bg">
+<div class="proto-modal">
+<div class="proto-modal-title">新建项目</div>
+<label>标题 *</label>
+<input type="text" value="我的新漫剧">
+<label>作者 *</label>
+<input type="text" value="未知作者">
+<label>简介 *（10~2000 字）</label>
+<textarea>这是一段漫剧的简介内容，至少 10 个字符...</textarea>
+<label>封面 emoji</label>
+<input type="text" value="🎬">
+<label>视频素材目录（可选）</label>
+<input type="text" placeholder="D:\videos\manga_name">
+<label>文本资料目录（可选）</label>
+<input type="text" placeholder="D:\docs\manga_name">
+<div class="proto-modal-actions">
+<button class="proto-btn">取消</button>
+<button class="proto-btn proto-btn-primary">创建</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>校验：</strong>
+<ul>
+<li>标题 1~128 字符</li>
+<li>简介 10~2000 字符</li>
+<li>路径必须存在才允许保存（前端点击"浏览"按钮选目录）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M3 · 剧集管理
+     ============================================================ -->
+<section id="module-episodes">
+<h2>M3 · 剧集管理</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 剧集是项目下的"集数"维度，多个创作可归属同一剧集（不同版本）。<br>
+<strong>页面：</strong> /projects/{id}（项目详情 = 剧集列表）<br>
+<strong>页面：</strong> /projects/{id}/creations（剧集下的创作列表，可展开剧集查看）
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">M3-1 · 项目详情页（剧集分组 + 创作列表）</div>
+<div class="proto-container">
+<style>
+.proto-detail { padding: 24px; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; min-height: 600px; }
+.proto-detail-back { color: var(--text-secondary); font-size: 13px; margin-bottom: 16px; cursor: pointer; }
+.proto-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.proto-detail-title { display: flex; align-items: center; gap: 12px; }
+.proto-detail-cover { font-size: 32px; }
+.proto-detail-name { font-size: 20px; font-weight: 600; }
+.proto-detail-actions { display: flex; gap: 8px; }
+.proto-episode-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: 12px; overflow: hidden; }
+.proto-episode-header { padding: 16px 20px; background: var(--surface-2); display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.proto-episode-title { font-size: 15px; font-weight: 600; }
+.proto-episode-body { padding: 0; }
+.proto-creation-row { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.proto-creation-step { background: var(--surface-3); padding: 4px 10px; border-radius: 4px; font-size: 12px; color: var(--text-secondary); margin-right: 8px; }
+.proto-creation-status { font-size: 12px; color: var(--text-muted); }
+</style>
+<div class="proto-detail">
+<div class="proto-detail-back">← 返回项目列表</div>
+<div class="proto-detail-header">
+<div class="proto-detail-title">
+<div class="proto-detail-cover">🎬</div>
+<div>
+<div class="proto-detail-name">斗破苍穹</div>
+<div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">天蚕土豆 · 3 集</div>
+</div>
+</div>
+<div class="proto-detail-actions">
+<button class="proto-btn">+ 新建剧集</button>
+<button class="proto-btn proto-btn-primary">+ 新建创作</button>
+</div>
+</div>
+
+<div class="proto-episode-block">
+<div class="proto-episode-header">
+<div class="proto-episode-title">▼ 第 1 集 · 陨落的天才</div>
+<button class="proto-btn">+ 新建创作</button>
+</div>
+<div class="proto-episode-body">
+<div class="proto-creation-row">
+<div>
+<span class="proto-creation-step">Step 7 已完成</span>
+<span>2026-09-05 生成的剪辑版本</span>
+</div>
+<div class="proto-creation-status">导出 mp4 · 12.3 MB</div>
+</div>
+<div class="proto-creation-row">
+<div>
+<span class="proto-creation-step">Step 3 进行中</span>
+<span>2026-09-08 启动的新创作</span>
+</div>
+<div class="proto-creation-status">草稿</div>
+</div>
+</div>
+</div>
+
+<div class="proto-episode-block">
+<div class="proto-episode-header">
+<div class="proto-episode-title">▼ 第 2 集 · 萧炎的决心</div>
+<button class="proto-btn">+ 新建创作</button>
+</div>
+<div class="proto-episode-body">
+<div class="proto-creation-row">
+<div>
+<span class="proto-creation-step">Step 2 已完成</span>
+<span>2026-09-03 生成的剪辑版本</span>
+</div>
+<div class="proto-creation-status">草稿</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>关键交互：</strong>
+<ul>
+<li>剧集默认折叠（图标 ▼ 展开），展开后显示创作列表</li>
+<li>"+ 新建创作"按钮位置：
+<ul>
+<li>项目级（顶部右侧）：创建默认剧集的创作</li>
+<li>剧集级（行内）：在该剧集下创建</li>
+</ul>
+</li>
+<li>点击创作行：进入 7 步向导（从 current_step 继续）</li>
+<li>Step 状态徽章：pending（灰）/ running（蓝）/ completed（绿）/ failed（红）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M4 · 创作流程
+     ============================================================ -->
+<section id="module-creations">
+<h2>M4 · 创作流程（核心 · 7 步向导）</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 通过 7 步向导完成一部漫剧推广视频的生产全过程。<br>
+<strong>页面：</strong> /creations/:id/step[1-7]<br>
+<strong>核心交互：</strong>
+<ul>
+<li>步骤导航条（7 个标签）— 当前步骤高亮，未完成步骤置灰锁定</li>
+<li>步骤锁定：前一步未完成，后一步标签置灰（不可点击）</li>
+<li>浮动状态栏：右下角显示当前正在执行的步骤</li>
+<li>每步操作按钮组：← 上一步 / 🔄 重新执行 / ⏹ 终止 / 下一步 →</li>
+</ul>
+</div>
+
+<h3>原型预览</h3>
+<div class="prototype">
+<div class="proto-label">M4-1 · 7 步向导整体布局（含 Step 导航条 + 面板 + 浮动状态栏）</div>
+<div class="proto-container">
+<style>
+.proto-workflow { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; min-height: 700px; position: relative; }
+.proto-workflow-header { padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.proto-workflow-title { font-size: 16px; font-weight: 600; }
+.proto-workflow-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); padding: 6px 12px; background: var(--surface-2); border-radius: var(--radius-btn); }
+.proto-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); }
+.proto-step-nav { display: flex; align-items: center; gap: 0; padding: 16px 24px; background: var(--surface-2); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.proto-step-item { padding: 8px 16px; color: var(--text-muted); font-size: 13px; cursor: not-allowed; border-bottom: 2px solid transparent; white-space: nowrap; }
+.proto-step-item.completed { color: var(--success); cursor: pointer; }
+.proto-step-item.completed::before { content: "✓ "; }
+.proto-step-item.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; cursor: default; }
+.proto-step-sep { color: var(--text-muted); margin: 0 4px; }
+.proto-workflow-panel { padding: 24px; }
+.proto-panel-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.proto-panel-hint { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+.proto-panel-content { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 24px; min-height: 200px; }
+.proto-panel-actions { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.proto-actions-left, .proto-actions-right { display: flex; gap: 8px; }
+.proto-floating { position: absolute; bottom: 24px; right: 24px; background: var(--primary); color: white; padding: 10px 16px; border-radius: var(--radius-btn); font-size: 13px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 8px; }
+</style>
+<div class="proto-workflow">
+<div class="proto-workflow-header">
+<div class="proto-workflow-title">🎬 斗破苍穹 · 第 1 集 · 创作 #1</div>
+<div class="proto-workflow-status">
+<div class="proto-status-dot"></div>
+已连接
+</div>
+</div>
+
+<div class="proto-step-nav">
+<div class="proto-step-item completed">1 输入</div>
+<div class="proto-step-sep">→</div>
+<div class="proto-step-item completed">2 拆解+搜索</div>
+<div class="proto-step-sep">→</div>
+<div class="proto-step-item active">3 口播</div>
+<div class="proto-step-sep">→</div>
+<div class="proto-step-item">4 音视频</div>
+<div class="proto-step-sep">→</div>
+<div class="proto-step-item">5 预览</div>
+<div class="proto-step-sep">→</div>
+<div class="proto-step-item">6 裁切</div>
+<div class="proto-step-sep">→</div>
+<div class="proto-step-item">7 合成</div>
+</div>
+
+<div class="proto-workflow-panel">
+<div class="proto-panel-title">Step 3 · 生成抖音口播长文</div>
+<div class="proto-panel-hint">基于关键词+大纲+搜索文章生成完整口播文案，可编辑</div>
+<div class="proto-panel-content">
+<div style="color:var(--text-secondary); font-style:italic;">【口播长文编辑区】TextArea + 大纲折叠面板</div>
+</div>
+<div class="proto-panel-actions">
+<div class="proto-actions-left">
+<button class="proto-btn">← 上一步</button>
+</div>
+<div class="proto-actions-right">
+<button class="proto-btn">🔄 重新执行</button>
+<button class="proto-btn" style="color:var(--error); border-color:var(--error);">⏹ 终止</button>
+<button class="proto-btn proto-btn-primary">下一步 →</button>
+</div>
+</div>
+</div>
+
+<div class="proto-floating">
+⚡ Step3 执行中
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>步骤导航条交互：</strong>
+<ul>
+<li>已完成步骤（绿 ✓）：可点击跳回该步修改</li>
+<li>当前步骤（紫底白字）：不可点击，显示当前</li>
+<li>未完成步骤（灰）：未解锁前不可点击</li>
+<li>解锁规则：当前步骤完成后，下一步自动解锁</li>
+</ul>
+<strong>操作按钮组：</strong>
+<ul>
+<li>← 上一步：返回修改（不影响已完成结果）</li>
+<li>🔄 重新执行：调用相同接口，结果覆盖（version 自增，可回滚）</li>
+<li>⏹ 终止：取消进行中的长任务（TTS/ffmpeg/合成）</li>
+<li>下一步 →：保存当前步 → 解锁下一步</li>
+</ul>
+<strong>浮动状态栏：</strong>
+<ul>
+<li>仅在长任务执行时显示，3 秒后未结束则持续显示</li>
+<li>点击可展开看进度详情（百分比 + 已用时间）</li>
+<li>任务完成后自动消失</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M5 · Step1 输入
+     ============================================================ -->
+<section id="module-step1">
+<h2>M5 · Step1 输入漫剧信息</h2>
+
+<div class="feature-desc">
+<strong>功能：</strong> 填写标题/作者/简介/素材目录，构建知识库，扫描视频文件。<br>
+<strong>接口：</strong> POST /api/step1/load<br>
+<strong>输出：</strong> 视频清单（文件名 + 时长）+ 知识库路径
+</div>
+
+<div class="prototype">
+<div class="proto-label">M5-1 · Step1 面板</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<h4 style="color:var(--text); margin:0 0 16px 0;">输入漫剧信息</h4>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
+<div><label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">标题 *</label>
+<input value="斗破苍穹" style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:var(--radius-input);"></div>
+<div><label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">作者 *</label>
+<input value="天蚕土豆" style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:var(--radius-input);"></div>
+</div>
+<div style="margin-bottom:16px;"><label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">简介 *</label>
+<textarea style="width:100%; min-height:80px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:var(--radius-input); font-family:inherit;">属于斗气的世界，没有弱者...</textarea></div>
+<div style="margin-bottom:16px;"><label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">视频素材目录</label>
+<div style="display:flex; gap:8px;"><input value="D:\videos\doupo" style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:var(--radius-input);"><button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer;">浏览</button></div>
+</div>
+<div style="margin-bottom:16px;"><label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">文本资料目录</label>
+<div style="display:flex; gap:8px;"><input value="D:\docs\doupo" style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:var(--radius-input);"><button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer;">浏览</button></div>
+</div>
+<button style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:var(--radius-btn); cursor:pointer; font-size:14px;">🔨 构建知识库 + 扫描视频</button>
+</div>
+<div style="margin-top:16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">扫描结果</h5>
+<div style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;">找到 12 个视频文件，总时长 03:24:18</div>
+<div style="background:var(--surface-2); border-radius:4px; max-height:160px; overflow-y:auto; font-size:12px;">
+<div style="padding:6px 12px; border-bottom:1px solid var(--border); color:var(--text-secondary);">📹 ep001.mp4 · 02:34</div>
+<div style="padding:6px 12px; border-bottom:1px solid var(--border); color:var(--text-secondary);">📹 ep002.mp4 · 02:51</div>
+<div style="padding:6px 12px; border-bottom:1px solid var(--border); color:var(--text-secondary);">📹 ep003.mp4 · 03:02</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>"构建知识库"按钮可重复点击（relearn=true 时重建）</li>
+<li>扫描结果超过 50 个文件时分页 / 虚拟滚动</li>
+<li>视频时长显示 mm:ss / hh:mm:ss 格式</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M6 · Step2 拆解+搜索
+     ============================================================ -->
+<section id="module-step2">
+<h2>M6 · Step2 AI 拆解 + 搜索文章</h2>
+
+<div class="feature-desc">
+<strong>功能：</strong> AI 从简介提取核心关键词/价值点/建议标题，调用搜索 API 获取相关文章正文。<br>
+<strong>接口：</strong> POST /api/step2/analyze<br>
+<strong>AI 模型：</strong> MiniMax M3（OpenAI 兼容）
+</div>
+
+<div class="prototype">
+<div class="proto-label">M6-1 · Step2 面板（关键词卡片 + 文章列表）</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px; margin-bottom:16px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">核心关键词</h5>
+<div style="display:flex; gap:6px; flex-wrap:wrap;">
+<span style="background:var(--primary-dim); color:white; padding:4px 12px; border-radius:12px; font-size:12px;">斗气</span>
+<span style="background:var(--primary-dim); color:white; padding:4px 12px; border-radius:12px; font-size:12px;">修炼</span>
+<span style="background:var(--primary-dim); color:white; padding:4px 12px; border-radius:12px; font-size:12px;">天才</span>
+<span style="background:var(--primary-dim); color:white; padding:4px 12px; border-radius:12px; font-size:12px;">逆袭</span>
+</div>
+</div>
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:16px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">价值点</h5>
+<ul style="margin:0; padding-left:20px; color:var(--text-secondary); font-size:13px;">
+<li>热血逆袭，符合抖音用户喜好</li>
+<li>修炼体系完整，受众广</li>
+</ul>
+</div>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:16px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">建议标题</h5>
+<ul style="margin:0; padding-left:20px; color:var(--text-secondary); font-size:13px;">
+<li>斗破苍穹：少年萧炎的逆袭之路</li>
+<li>3 分钟看懂斗气修炼</li>
+</ul>
+</div>
+</div>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">参考文章（来自网络搜索）</h5>
+<div style="font-size:13px; color:var(--text-secondary); padding:8px 12px; background:var(--surface-2); border-radius:4px; margin-bottom:6px;">
+<div style="color:var(--text); font-weight:500;">斗气大陆的等级划分</div>
+<div style="margin-top:4px;">来源: example.com · 共 1247 字</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>关键词可点击单独删除</li>
+<li>建议标题可点击复制到剪贴板</li>
+<li>文章可点击展开查看完整正文（弹窗）</li>
+<li>可手动调整搜索关键词数量（1~5 篇）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M7 · Step3 口播长文
+     ============================================================ -->
+<section id="module-step3">
+<h2>M7 · Step3 口播长文生成</h2>
+
+<div class="feature-desc">
+<strong>功能：</strong> 基于关键词+大纲+参考文章生成完整抖音口播文案，可编辑修改。<br>
+<strong>接口：</strong> POST /api/step3/generate<br>
+<strong>AI 模型：</strong> MiniMax M3，prompt 模板见 <code>prompts/step3_script.md</code>
+</div>
+
+<div class="prototype">
+<div class="proto-label">M7-1 · Step3 面板（大纲折叠 + 长文编辑）</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<div style="background:var(--surface-2); padding:12px; border-radius:4px; margin-bottom:12px; cursor:pointer;">
+<div style="display:flex; justify-content:space-between;">
+<span style="color:var(--text); font-weight:500;">▼ 大纲（自动生成）</span>
+<span style="color:var(--text-muted); font-size:12px;">点击折叠</span>
+</div>
+<div style="margin-top:8px; color:var(--text-secondary); font-size:13px;">
+1. 开场：萧炎天才陨落<br>
+2. 引出：修炼体系简介<br>
+3. 卖点：逆袭燃点<br>
+4. 结尾：引导关注
+</div>
+</div>
+<label style="display:block; color:var(--text); font-size:13px; margin:16px 0 6px;">口播长文（可编辑）</label>
+<textarea style="width:100%; min-height:240px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:12px; border-radius:var(--radius-input); font-family:inherit; line-height:1.8;">"你是否想过，曾经的天才如何跌落神坛？...
+
+今天我们来聊一聊《斗破苍穹》这部神作。在斗气大陆上，修炼的等级分为斗者、斗师、...
+
+关注我，下期更精彩！"</textarea>
+<div style="margin-top:8px; font-size:12px; color:var(--text-muted);">
+字数: 187 · 预计 TTS 时长: 48 秒
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>大纲默认折叠（沿用旧版交互），点击展开</li>
+<li>长文编辑实时统计字数与预计时长（按 4 字/秒）</li>
+<li>"重新生成"按钮保留旧版本到 generation_history，可回滚</li>
+<li>保存自动触发 Step4 之前的配额校验</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M8 · Step4 双线并行
+     ============================================================ -->
+<section id="module-step4">
+<h2>M8 · Step4 双线并行（音频 + 视频标记）</h2>
+
+<div class="feature-desc">
+<strong>功能：</strong> TTS 合成口播音频 + 随机标记视频时间段，两条线并行。<br>
+<strong>接口：</strong> POST /api/step4/generate（长任务异步，返回 task_id）<br>
+<strong>长任务：</strong> TTS 部分走 task_id，前端轮询
+</div>
+
+<div class="prototype">
+<div class="proto-label">M8-1 · Step4 面板（音频播放器 + 视频标记可视化 + 长任务进度）</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">🎵 TTS 音频</h5>
+<div style="background:var(--surface-3); padding:30px; border-radius:8px; text-align:center; margin-bottom:12px;">
+<div style="font-size:24px;">▶</div>
+<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">音频时长 00:48 · edge-tts</div>
+</div>
+<div style="display:flex; gap:6px; align-items:center;">
+<button style="background:var(--accent); color:white; border:none; padding:6px 12px; border-radius:var(--radius-btn); font-size:12px; cursor:pointer;">▶ 试听</button>
+<select style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px; border-radius:4px; font-size:12px;">
+<option>0.5x</option><option>1x</option><option>1.5x</option><option>2x</option>
+</select>
+</div>
+</div>
+
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">🎬 视频标记</h5>
+<div style="background:var(--surface-2); border-radius:4px; padding:12px; margin-bottom:12px;">
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">总时长: 50.0s · 音频时长: 48.0s · 差异: +2.0s ✓</div>
+<div style="display:flex; gap:2px; height:32px;">
+<div style="flex:1; background:var(--primary); border-radius:2px;"></div>
+<div style="flex:1.2; background:var(--primary); border-radius:2px;"></div>
+<div style="flex:0.8; background:var(--primary); border-radius:2px;"></div>
+<div style="flex:1.5; background:var(--primary); border-radius:2px;"></div>
+<div style="flex:1; background:var(--primary); border-radius:2px;"></div>
+</div>
+</div>
+<div style="font-size:11px; color:var(--text-muted);">5 个标记片段 · 来源: 3 个视频</div>
+</div>
+</div>
+
+<div style="margin-top:16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:16px;">
+<h5 style="color:var(--text); margin:0 0 8px 0;">长任务进度</h5>
+<div style="background:var(--surface-2); border-radius:4px; height:8px; overflow:hidden;">
+<div style="background:var(--accent); height:100%; width:65%;"></div>
+</div>
+<div style="margin-top:6px; font-size:12px; color:var(--text-secondary);">65% · TTS 合成中，预计还需 12 秒</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>音频与视频分别独立生成，互不阻塞</li>
+<li>TTS 部分走异步任务（task_id），每 2 秒轮询进度</li>
+<li>标记片段总时长 = 音频时长 + 2 秒（留余量，可手动调整）</li>
+<li>差异 > 2 秒时高亮警告（红色边框）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M9 · Step5 虚拟预览（核心创新）
+     ============================================================ -->
+<section id="module-step5">
+<h2>M9 · Step5 虚拟串播预览 ⭐ 核心创新</h2>
+
+<div class="feature-desc">
+<strong>核心价值：</strong> 用 <code>video.currentTime</code> 切换实现 0 IO 预览，用户可调时间段/增删片段/拖拽后，最后才真正裁切（Step6）。<br>
+<strong>复用旧版：</strong> 旧版的核心创新点，必须 1:1 复刻。<br>
+<strong>交互密度：</strong> 整个产品最复杂的组件，需重点 review。
+</div>
+
+<div class="prototype">
+<div class="proto-label">M9-1 · 虚拟预览器（视频 + 音频 + 时间轴 + 片段列表）</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px;">
+<div>
+<div style="background:#000; border-radius:8px; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; margin-bottom:12px; position:relative;">
+<div style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.6); padding:4px 10px; border-radius:4px; font-size:11px; color:white;">▶ 1/5 片段 · ep003.mp4 [00:23.4 - 00:27.1]</div>
+<div style="font-size:48px; color:rgba(255,255,255,0.3);">▶</div>
+</div>
+<div style="display:flex; gap:8px; align-items:center;">
+<button style="background:var(--accent); color:white; border:none; padding:8px 16px; border-radius:var(--radius-btn); cursor:pointer;">▶ 播放</button>
+<select style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px; border-radius:4px;"><option>1x</option><option>0.5x</option><option>1.5x</option></select>
+<div style="flex:1; color:var(--text-secondary); font-size:12px; text-align:right;">⏱ 当前 00:23 / 总 00:48</div>
+</div>
+</div>
+
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:16px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">标记片段（5）</h5>
+<div style="font-size:13px; color:var(--success); margin-bottom:12px;">✓ 总时长 50.0s · 音频 48.0s · 匹配 +2s</div>
+<div style="background:var(--surface-2); border-radius:4px; max-height:280px; overflow-y:auto;">
+<div style="padding:10px 12px; border-bottom:1px solid var(--border); cursor:grab; display:flex; justify-content:space-between;">
+<div><div style="color:var(--text); font-size:13px;">ep001.mp4</div><div style="color:var(--text-muted); font-size:11px;">00:00 → 00:04 (4s)</div></div>
+<div style="color:var(--text-muted);">⋮</div>
+</div>
+<div style="padding:10px 12px; border-bottom:1px solid var(--border); cursor:grab; display:flex; justify-content:space-between;">
+<div><div style="color:var(--text); font-size:13px;">ep003.mp4</div><div style="color:var(--text-muted); font-size:11px;">00:23 → 00:27 (4s)</div></div>
+<div style="color:var(--text-muted);">⋮</div>
+</div>
+</div>
+<button style="width:100%;background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px; border-radius:var(--radius-btn); cursor:pointer; margin-top:12px;">+ 添加片段</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>这是产品最复杂的组件，必须严格按以下交互实现：</strong>
+<ul>
+<li><strong>播放</strong>：用 video.currentTime 切换，setTimeout 精确控制片段时长，<strong>不产生任何文件 IO</strong></li>
+<li><strong>片段增删</strong>：右侧列表右键菜单 / ⋮ 按钮弹出</li>
+<li><strong>片段拖拽</strong>：支持调整顺序</li>
+<li><strong>时间段编辑</strong>：双击进入编辑模式，input 框输入 start/end</li>
+<li><strong>时长匹配检查</strong>：差异 ≥ 2 秒时高亮（黄色警告）</li>
+<li><strong>倍速切换</strong>：0.5x / 1x / 1.5x / 2x</li>
+<li><strong>键盘快捷键</strong>：Space 播放/暂停，← → 切片段</li>
+<li><strong>移动端</strong>：片段列表改为底部抽屉</li>
+</ul>
+<strong>性能要求：</strong>
+<ul>
+<li>预览启动延迟 < 200ms</li>
+<li>拖拽帧率 ≥ 30fps（用 requestAnimationFrame）</li>
+<li>长列表用虚拟滚动</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M10 · Step6 裁切合并
+     ============================================================ -->
+<section id="module-step6">
+<h2>M10 · Step6 ffmpeg 裁切合并</h2>
+
+<div class="feature-desc">
+<strong>功能：</strong> 用户确认标记后，按标记 ffmpeg 切片所有视频片段，再 concat 合并为无音轨视频。<br>
+<strong>接口：</strong> POST /api/step6/confirm（长任务异步）<br>
+<strong>可逆性：</strong> 用户取消 → 不删除原视频；确认后才真正裁切
+</div>
+
+<div class="prototype">
+<div class="proto-label">M10-1 · Step6 面板（标记确认 + 裁切进度）</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px; margin-bottom:16px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">确认裁切</h5>
+<div style="background:var(--warning-bg,#3a2e1a); border:1px solid var(--warning); border-radius:var(--radius-btn); padding:12px; margin-bottom:16px; color:var(--warning); font-size:13px;">
+⚠ 将对 5 个标记片段执行 ffmpeg 切片，操作不可撤销（但原视频不会被删除）
+</div>
+<div style="margin-bottom:12px; font-size:13px; color:var(--text-secondary);">
+预估耗时: 30~60 秒 · 输出: 无音轨视频 clips.mp4
+</div>
+<button style="background:var(--accent); color:white; border:none; padding:12px 24px; border-radius:var(--radius-btn); cursor:pointer; font-size:14px; font-weight:600;">▶ 开始裁切合并</button>
+</div>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">裁切进度</h5>
+<div style="background:var(--surface-2); border-radius:4px; height:8px; overflow:hidden; margin-bottom:12px;">
+<div style="background:var(--accent); height:100%; width:42%;"></div>
+</div>
+<div style="font-size:13px; color:var(--text-secondary);">
+正在切片第 3/5 个片段: ep003.mp4 [00:23 → 00:27] · 已用时 24 秒
+</div>
+<div style="margin-top:12px; max-height:120px; overflow-y:auto; background:var(--surface-2); padding:8px 12px; border-radius:4px; font-family:monospace; font-size:11px; color:var(--text-muted);">
+[14:32:01] 开始切片 ep001.mp4<br>
+[14:32:06] ✓ ep001.mp4 切片完成 (4.2s)<br>
+[14:32:08] 开始切片 ep002.mp4<br>
+[14:32:14] ✓ ep002.mp4 切片完成 (5.1s)<br>
+[14:32:16] 开始切片 ep003.mp4<br>
+[14:32:23] 切片中 42%...
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>开始按钮触发后立即进入"裁切进度"视图</li>
+<li>实时日志滚动（最多保留 50 行）</li>
+<li>完成后跳到 Step7 或允许用户停留 Step6 检查产物</li>
+<li>失败时显示具体错误（如"ep005.mp4 编码失败"），可重试</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M11 · Step7 合成导出
+     ============================================================ -->
+<section id="module-step7">
+<h2>M11 · Step7 合成导出</h2>
+
+<div class="feature-desc">
+<strong>功能：</strong> 将 Step6 视频 + Step4 音频 + 字幕烧录合成最终 mp4，提供下载。<br>
+<strong>接口：</strong> POST /api/step7/synthesize（长任务异步）<br>
+<strong>输出：</strong> <code>workspace/{project_id}/output/final.mp4</code>
+</div>
+
+<div class="prototype">
+<div class="proto-label">M11-1 · Step7 面板（合成进度 + 预览 + 下载）</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<h5 style="color:var(--text); margin:0 0 16px 0;">合成最终视频</h5>
+<div style="display:flex; gap:12px; margin-bottom:16px;">
+<div style="flex:1;">
+<label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">分辨率</label>
+<select style="width:100%; background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px; border-radius:var(--radius-input);">
+<option>1920×1080 (横屏 · 推荐)</option><option>1080×1920 (竖屏 · 抖音)</option>
+</select>
+</div>
+<div style="display:flex; align-items:center; gap:8px; padding-top:24px;">
+<input type="checkbox" checked><label style="color:var(--text); font-size:13px;">烧录字幕</label>
+</div>
+</div>
+<button style="background:var(--accent); color:white; border:none; padding:12px 24px; border-radius:var(--radius-btn); cursor:pointer; font-size:14px; font-weight:600;">▶ 开始合成</button>
+</div>
+
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px; margin-top:16px;">
+<h5 style="color:var(--text); margin:0 0 12px 0;">合成完成</h5>
+<div style="display:flex; gap:16px; align-items:center;">
+<div style="background:#000; border-radius:8px; aspect-ratio:16/9; width:240px; display:flex; align-items:center; justify-content:center;">
+<div style="color:rgba(255,255,255,0.4);">▶ 预览</div>
+</div>
+<div style="flex:1;">
+<div style="font-size:15px; color:var(--text); font-weight:600; margin-bottom:4px;">final.mp4</div>
+<div style="font-size:13px; color:var(--text-secondary); margin-bottom:4px;">大小: 12.3 MB · 时长: 00:50 · 1920×1080</div>
+<div style="font-size:12px; color:var(--text-muted); margin-bottom:16px;">创建时间: 2026-09-08 14:42 · 已包含字幕烧录</div>
+<button style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:var(--radius-btn); cursor:pointer; font-size:13px;">⬇ 下载 mp4</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>合成完成后显示预览（HTML5 video 标签）+ 下载按钮</li>
+<li>下载用 <code>/api/files/download</code>，鉴权 + 路径防护</li>
+<li>可在 Step6 与 Step7 之间往返微调</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M12 · 个人中心
+     ============================================================ -->
+<section id="module-profile">
+<h2>M12 · 个人中心</h2>
+
+<div class="feature-desc">
+<strong>页面：</strong> /profile、/profile/password<br>
+<strong>功能：</strong> 查看/编辑个人资料、修改密码
+</div>
+
+<div class="prototype">
+<div class="proto-label">M12-1 · 个人中心</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:24px; max-width:600px;">
+<div style="display:flex; gap:16px; align-items:center; margin-bottom:24px;">
+<div style="width:80px; height:80px; background:var(--primary-dim); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:36px;">👤</div>
+<div>
+<div style="font-size:18px; font-weight:600; color:var(--text);">张三</div>
+<div style="font-size:13px; color:var(--text-secondary); margin-top:4px;">zhangsan · Free 用户</div>
+</div>
+</div>
+<div style="margin-bottom:16px;">
+<label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">昵称</label>
+<input value="张三" style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:var(--radius-input);">
+</div>
+<div style="margin-bottom:16px;">
+<label style="display:block; color:var(--text); font-size:13px; margin-bottom:4px;">个人简介</label>
+<textarea style="width:100%; min-height:60px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:var(--radius-input); font-family:inherit;">漫剧剪辑爱好者</textarea>
+</div>
+<button style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:var(--radius-btn); cursor:pointer;">保存修改</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>头像 URL（暂用 emoji 头像）— v4.1 接入头像上传</li>
+<li>邮箱字段可选，未填写不强制</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M13 · 会员中心
+     ============================================================ -->
+<section id="module-membership">
+<h2>M13 · 会员中心</h2>
+
+<div class="feature-desc">
+<strong>页面：</strong> /profile/membership<br>
+<strong>功能：</strong> 查看当前会员等级、配额使用情况、到期时间
+</div>
+
+<div class="prototype">
+<div class="proto-label">M13-1 · 会员中心</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:24px; max-width:700px;">
+<div style="background:linear-gradient(135deg, var(--primary), var(--accent)); border-radius:var(--radius-card); padding:20px; margin-bottom:24px; color:white;">
+<div style="font-size:13px; opacity:0.9;">当前等级</div>
+<div style="font-size:32px; font-weight:700; margin:6px 0;">Pro</div>
+<div style="font-size:12px; opacity:0.85;">到期时间: 2026-12-31 · 分配人: admin</div>
+</div>
+<h5 style="color:var(--text); margin:0 0 12px 0;">本月配额使用</h5>
+<div style="background:var(--surface-2); border-radius:8px; padding:16px;">
+<div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+<span style="font-size:13px; color:var(--text-secondary);">项目数</span>
+<span style="font-size:13px; color:var(--text);">5 / 20</span>
+</div>
+<div style="background:var(--surface-3); height:6px; border-radius:3px; margin-bottom:16px; overflow:hidden;">
+<div style="background:var(--primary); height:100%; width:25%;"></div>
+</div>
+<div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+<span style="font-size:13px; color:var(--text-secondary);">Step 调用次数</span>
+<span style="font-size:13px; color:var(--text);">23 / 500</span>
+</div>
+<div style="background:var(--surface-3); height:6px; border-radius:3px; margin-bottom:16px; overflow:hidden;">
+<div style="background:var(--primary); height:100%; width:4.6%;"></div>
+</div>
+<div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+<span style="font-size:13px; color:var(--text-secondary);">存储空间</span>
+<span style="font-size:13px; color:var(--text);">1.2 GB / 5 GB</span>
+</div>
+<div style="background:var(--surface-3); height:6px; border-radius:3px; overflow:hidden;">
+<div style="background:var(--primary); height:100%; width:24%;"></div>
+</div>
+</div>
+<div style="margin-top:16px; padding:12px; background:var(--surface-2); border-radius:6px; font-size:13px; color:var(--text-secondary);">
+💡 如需升级会员，请联系系统管理员
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>配额进度条颜色：< 60% 紫 / 60-90% 黄 / > 90% 红</li>
+<li>配额用尽时调用 Step 接口 → HTTP 402 + 模态框引导联系管理员</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     M14 · 管理员后台
+     ============================================================ -->
+<section id="module-admin">
+<h2>M14 · 管理员后台</h2>
+
+<div class="feature-desc">
+<strong>页面：</strong> /admin/users、/admin/memberships、/admin/configs、/admin/audit-logs<br>
+<strong>权限：</strong> 仅 <code>is_admin=true</code> 用户可见，否则跳 <code>/403</code>
+</div>
+
+<div class="prototype">
+<div class="proto-label">M14-1 · 用户管理</div>
+<div class="proto-container">
+<div style="padding:24px; color:var(--text); font-family:-apple-system,sans-serif;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;">
+<div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+<div style="font-size:18px; font-weight:600;">用户管理</div>
+<div style="display:flex; gap:8px;">
+<input placeholder="搜索用户名/邮箱" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius-input);">
+<select style="background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:var(--radius-input);">
+<option>全部</option><option>Free</option><option>Pro</option><option>Enterprise</option>
+</select>
+</div>
+</div>
+<table style="width:100%; border-collapse:collapse; font-size:13px;">
+<thead>
+<tr style="background:var(--surface-2);">
+<th style="padding:10px; text-align:left; color:var(--text-secondary);">用户名</th>
+<th style="color:var(--text-secondary);">邮箱</th>
+<th style="color:var(--text-secondary);">会员</th>
+<th style="color:var(--text-secondary);">状态</th>
+<th style="color:var(--text-secondary);">操作</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:10px; color:var(--text);">zhangsan</td>
+<td style="color:var(--text-secondary);">z@example.com</td>
+<td><span style="background:var(--primary-dim); color:white; padding:2px 8px; border-radius:10px; font-size:11px;">Pro</span></td>
+<td><span style="color:var(--success);">● 启用</span></td>
+<td><a style="color:var(--primary); cursor:pointer; margin-right:8px;">改会员</a><a style="color:var(--primary); cursor:pointer; margin-right:8px;">改密码</a><a style="color:var(--error); cursor:pointer;">停用</a></td>
+</tr>
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:10px; color:var(--text);">lisi</td>
+<td style="color:var(--text-secondary);">l@example.com</td>
+<td><span style="background:var(--surface-3); color:var(--text-secondary); padding:2px 8px; border-radius:10px; font-size:11px;">Free</span></td>
+<td><span style="color:var(--success);">● 启用</span></td>
+<td><a style="color:var(--primary); cursor:pointer; margin-right:8px;">改会员</a><a style="color:var(--primary); cursor:pointer; margin-right:8px;">改密码</a><td><a style="color:var(--error); cursor:pointer;">停用</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<ul>
+<li>"改会员"按钮：弹窗（会员等级 + 到期时间 + 备注）→ 提交后 audit_logs 记录</li>
+<li>"改密码"按钮：弹窗（直接输入新密码）</li>
+<li>"停用"按钮：二次确认（Popconfirm）→ 用户下次登录 401</li>
+<li>"启用/停用"列直接显示当前状态</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     变更记录
+     ============================================================ -->
+<section id="changelog">
+<h2>变更记录</h2>
+<table>
+<tr><th>日期</th><th>版本</th><th>变更内容</th></tr>
+<tr><td>2026-09-08</td><td>v1.0</td><td>初始版本：基于旧版 static/index.html 1:1 复刻，新增登录注册/会员/管理员后台 14 个模块原型</td></tr>
+</table>
+</section>
+
+</main>
+
+</body>
+</html>

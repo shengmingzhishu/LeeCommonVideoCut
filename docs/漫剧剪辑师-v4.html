@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漫剧剪辑师 · 设计文档 v4（完全复刻旧版）</title>
+<style>
+:root {
+    --bg: #0f1117; --surface: #1a1d27; --surface-2: #21252f; --surface-3: #2a2f3d;
+    --border: #2d3142; --border-light: #3a3f52;
+    --text: #e4e7ec; --text-secondary: #9ca3af; --text-muted: #6b7280;
+    --primary: #7c3aed; --primary-hover: #8b5cf6; --primary-dim: #6d28d9;
+    --accent: #D85A30; --accent-hover: #e96a3f;
+    --success: #10b981; --warning: #f59e0b; --error: #ef4444; --info: #3b82f6;
+    --radius-card: 12px; --radius-btn: 8px; --radius-input: 8px;
+    --doc-text: #1a1a2e; --doc-text-light: #4b5563; --doc-bg: #ffffff; --doc-bg-soft: #f9fafb; --doc-border: #e5e7eb; --doc-primary: #4f46e5;
+    --sp-xs: 8px; --sp-sm: 16px; --sp-md: 24px; --sp-lg: 40px;
+}
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; margin: 0; background: var(--doc-bg); color: var(--doc-text); line-height: 1.7; }
+a { color: var(--doc-primary); text-decoration: none; }
+code { background: var(--doc-bg-soft); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em; color: #be185d; }
+table { width: 100%; border-collapse: collapse; margin: var(--sp-sm) 0; }
+th, td { padding: 10px 14px; border: 1px solid var(--doc-border); text-align: left; vertical-align: middle; }
+th { background: var(--doc-bg-soft); font-weight: 600; }
+#doc-nav { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; overflow-y: auto; padding: var(--sp-md) var(--sp-sm); background: var(--doc-bg-soft); border-right: 1px solid var(--doc-border); }
+#doc-nav .nav-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+#doc-nav .nav-subtitle { font-size: 12px; color: var(--doc-text-muted); margin-bottom: var(--sp-md); }
+#doc-nav .nav-section { font-size: 11px; color: var(--doc-text-muted); text-transform: uppercase; margin: 12px 0 4px 12px; letter-spacing: 0.5px; }
+#doc-nav a { display: block; padding: 6px 12px; color: var(--doc-text-light); border-radius: 6px; font-size: 13px; }
+#doc-nav a:hover { background: rgba(79, 70, 229, 0.08); color: var(--doc-primary); text-decoration: none; }
+#doc-main { margin-left: 260px; padding: var(--sp-lg) 48px var(--sp-xl); max-width: 1300px; }
+@media (max-width: 768px) { #doc-nav { display: none; } #doc-main { margin-left: 0; padding: var(--sp-md) var(--sp-sm); } }
+section { margin-bottom: var(--sp-xl); page-break-inside: avoid; }
+h1 { font-size: 32px; margin: 0 0 var(--sp-sm) 0; }
+h2 { font-size: 22px; margin: var(--sp-lg) 0 var(--sp-md); padding-bottom: var(--sp-xs); border-bottom: 2px solid var(--doc-border); }
+h3 { font-size: 17px; margin: var(--sp-md) 0 var(--sp-sm); color: var(--doc-primary); }
+.feature-desc { background: var(--doc-bg-soft); border-left: 4px solid var(--doc-primary); padding: var(--sp-sm) var(--sp-md); margin-bottom: var(--sp-md); border-radius: 4px; font-size: 14px; }
+.interaction-desc { background: #fef3c7; border-left: 4px solid var(--warning); padding: var(--sp-sm) var(--sp-md); margin: var(--sp-md) 0; border-radius: 4px; font-size: 13px; }
+.interaction-desc strong { color: #92400e; }
+.prototype { margin: var(--sp-md) 0; border: 2px dashed var(--doc-border); border-radius: var(--radius-card); overflow: hidden; page-break-inside: avoid; }
+.proto-label { background: var(--doc-bg-soft); padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--doc-text-muted); border-bottom: 1px solid var(--doc-border); }
+.proto-container { background: var(--bg); color: var(--text); min-height: 400px; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+#changelog th { background: var(--doc-bg-soft); }
+.note { background: #fef9c3; border: 1px solid #fde047; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #713f12; }
+</style>
+</head>
+<body>
+
+<aside id="doc-nav">
+    <div class="nav-title">漫剧剪辑师</div>
+    <div class="nav-subtitle">v4 · 完全复刻旧版 + v3 完成页增强</div>
+
+    <div class="nav-section">全局</div>
+    <a href="#global">Header + 设计系统</a>
+    <a href="#login">登录注册</a>
+
+    <div class="nav-section">项目/剧集/创作</div>
+    <a href="#projects">项目列表</a>
+    <a href="#episodes">剧集管理</a>
+    <a href="#creations">创作列表</a>
+
+    <div class="nav-section">3 大主步骤</div>
+    <a href="#step-nav">步骤导航条</a>
+    <a href="#step1">Step 1 创作信息</a>
+    <a href="#step2">Step 2 口播长文</a>
+    <a href="#step3">Step 3 音视频素材</a>
+
+    <div class="nav-section">完成页</div>
+    <a href="#complete">🎬 完成页（多次合成）</a>
+
+    <div class="nav-section">弹窗</div>
+    <a href="#modal-config">⚙ 全局配置</a>
+    <a href="#modal-new-project">+新建项目</a>
+    <a href="#modal-edit-project">编辑项目</a>
+    <a href="#modal-new-episode">+创建剧集</a>
+    <a href="#modal-marker-edit">编辑标记</a>
+    <a href="#modal-download">下载视频</a>
+
+    <div class="nav-section">其他</div>
+    <a href="#personal">个人中心</a>
+    <a href="#membership">会员中心</a>
+    <a href="#admin">管理员后台</a>
+    <a href="#changelog">变更记录</a>
+</aside>
+
+<main id="doc-main">
+
+<h1>漫剧剪辑师 · 设计文档 v4（完全复刻旧版 + 完成页增强）</h1>
+<p style="color: var(--doc-text-muted);">2026-09-08 · 基于旧版 <code>AI漫剧剪辑师旧参考项目代码/static/index.html</code>（237 KB）完整逐行解析后产出</p>
+
+<div class="note">
+<strong>本次产出原则：</strong> 不再"挑模块"做，而是按用户原话"完全复刻旧系统的重要页面"。所有旧版 5 个主视图 + 7 个核心弹窗 + 1 个完成页，全部画出。
+</div>
+
+<!-- ============================================================
+     全局 · Header + 设计系统
+     ============================================================ -->
+<section id="global">
+<h2>全局 · Header 与设计系统</h2>
+
+<div class="feature-desc">
+<strong>复用旧版 <code>static/index.html</code> 第 1289-1309 行的完整结构</strong>。Header 在所有页面 sticky 顶部，包含：Logo + 标题/副标题、连接状态指示、用户名 chip、配置按钮、退出按钮。
+</div>
+
+<h3>原型预览 · 全局 Header</h3>
+<div class="prototype">
+<div class="proto-label">Header（所有视图通用）</div>
+<div class="proto-container">
+<style>
+.proto-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.proto-header-left { display: flex; align-items: center; gap: 12px; }
+.proto-logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: white; }
+.proto-title h1 { font-size: 16px; font-weight: 600; color: var(--text); margin: 0; }
+.proto-title p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.proto-header-right { display: flex; align-items: center; gap: 12px; }
+.proto-conn-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); padding: 6px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); }
+.proto-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); }
+.proto-header-btn { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+</style>
+<div class="proto-header">
+<div class="proto-header-left">
+<div class="proto-logo">漫</div>
+<div class="proto-title">
+<h1>漫剧推广素材剪辑师</h1>
+<p>一键生成漫剧推广视频</p>
+</div>
+</div>
+<div class="proto-header-right">
+<div class="proto-conn-status"><div class="proto-dot"></div><span>已连接</span></div>
+<div class="proto-conn-status"><span>👤</span><span>张三</span></div>
+<button class="proto-header-btn">⚙️ 配置</button>
+<button class="proto-header-btn">📁 项目列表</button>
+<button class="proto-header-btn">🚪 退出</button>
+</div>
+</div>
+</div>
+</div>
+
+<h3>设计系统（沿用旧版）</h3>
+<p>完整 CSS 变量定义见旧版第 9-34 行，Ant Design token 映射表见 cut-web/01-project-specific.md §1。关键颜色已在 v1 列出，此处不重复。</p>
+</section>
+
+<!-- ============================================================
+     登录注册
+     ============================================================ -->
+<section id="login">
+<h2>登录注册（#view-login · 旧版 1315-1334 行）</h2>
+
+<div class="feature-desc">
+<strong>关键差异：</strong> 旧版登录页是 <strong>登录/注册 Tab 切换</strong>（不是两个独立页面）。用户名默认填 <code>admin</code>，密码默认填 <code>admin</code>（演示用），支持回车键提交。
+</div>
+
+<h3>原型预览 · 登录页</h3>
+<div class="prototype">
+<div class="proto-label">登录注册 Tab 切换（默认登录）</div>
+<div class="proto-container">
+<style>
+.proto-login-page { display: flex; align-items: center; justify-content: center; min-height: 600px; padding: 60px 24px; }
+.proto-login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+.proto-login-card h2 { text-align: center; font-size: 22px; color: var(--text); margin: 0 0 4px 0; }
+.proto-login-subtitle { text-align: center; color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+.proto-login-tabs { display: flex; gap: 0; margin-bottom: 24px; background: var(--surface-2); border-radius: 8px; padding: 3px; }
+.proto-login-tab { flex: 1; padding: 8px; text-align: center; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-secondary); border: none; background: none; }
+.proto-login-tab.active { background: var(--primary); color: #fff; }
+.proto-login-form-group { margin-bottom: 16px; }
+.proto-login-label { display: block; color: var(--text); font-size: 13px; margin-bottom: 6px; }
+.proto-login-input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+.proto-login-input:focus { outline: none; border-color: var(--primary); }
+.proto-login-error { color: var(--error); font-size: 12px; margin-bottom: 12px; min-height: 18px; text-align: center; }
+.proto-login-btn { width: 100%; background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+</style>
+<div class="proto-login-page">
+<div class="proto-login-card">
+<h2>漫剧剪辑师</h2>
+<div class="proto-login-subtitle">登录或注册账号开始创作</div>
+<div class="proto-login-tabs">
+<button class="proto-login-tab active">登录</button>
+<button class="proto-login-tab">注册</button>
+</div>
+<div class="proto-login-form-group">
+<label class="proto-login-label">用户名</label>
+<input class="proto-login-input" value="admin">
+</div>
+<div class="proto-login-form-group">
+<label class="proto-login-label">密码</label>
+<input class="proto-login-input" type="password" value="admin">
+</div>
+<div class="proto-login-error"></div>
+<button class="proto-login-btn">登录</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>关键细节（沿用旧版）：</strong>
+<ul>
+<li>用户名/密码字段默认填 <code>admin/admin</code>（演示体验）</li>
+<li>密码框回车 = 提交</li>
+<li>登录/注册 Tab 切换（不跳页面）</li>
+<li>错误信息在按钮上方显示（红字，min-height 18px 避免抖动）</li>
+<li>登录成功 → 跳项目列表</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     项目列表
+     ============================================================ -->
+<section id="projects">
+<h2>项目列表（#view-projects · 旧版 1337-1350 行）</h2>
+
+<div class="feature-desc">
+<strong>结构：</strong> 顶部 toolbar（搜索框 + 筛选 Tab + 新建按钮）+ 卡片网格（renderProjects 渲染）。
+</div>
+
+<h3>原型预览 · 项目列表</h3>
+<div class="prototype">
+<div class="proto-label">Toolbar + 卡片网格（3 列 × N 行）</div>
+<div class="proto-container" style="padding:24px;">
+<style>
+.proto-projects-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.proto-search-box { flex: 1; max-width: 320px; }
+.proto-search-box input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+.proto-filter-tabs { display: flex; gap: 6px; }
+.proto-filter-tab { padding: 6px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
+.proto-filter-tab.active { background: var(--primary); border-color: var(--primary); color: white; }
+.proto-new-btn { margin-left: auto; background: var(--primary); color: white; border: none; padding: 8px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.proto-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.proto-project-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.2s ease; position: relative; }
+.proto-project-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.proto-project-cover { font-size: 48px; margin-bottom: 12px; text-align: center; padding: 16px 0; background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(216,90,48,0.1)); border-radius: 8px; }
+.proto-project-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.proto-project-author { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+.proto-project-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); padding-top: 12px; border-top: 1px solid var(--border); }
+.proto-project-status { position: absolute; top: 12px; right: 12px; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.proto-status-processing { background: rgba(245,158,11,0.2); color: var(--warning); }
+.proto-status-completed { background: rgba(16,185,129,0.2); color: var(--success); }
+</style>
+<div class="proto-projects-toolbar">
+<div class="proto-search-box"><input placeholder="搜索项目标题..."></div>
+<div class="proto-filter-tabs">
+<div class="proto-filter-tab active">全部</div>
+<div class="proto-filter-tab">进行中</div>
+<div class="proto-filter-tab">已完成</div>
+</div>
+<button class="proto-new-btn">+ 新建项目</button>
+</div>
+<div class="proto-projects-grid">
+<div class="proto-project-card">
+<span class="proto-project-status proto-status-processing">进行中</span>
+<div class="proto-project-cover">🎬</div>
+<div class="proto-project-title">斗破苍穹</div>
+<div class="proto-project-author">天蚕土豆</div>
+<div class="proto-project-meta"><span>3 集</span><span>5 个创作</span><span>2 天前</span></div>
+</div>
+<div class="proto-project-card">
+<span class="proto-project-status proto-status-completed">已完成</span>
+<div class="proto-project-cover">📺</div>
+<div class="proto-project-title">完美世界</div>
+<div class="proto-project-author">辰东</div>
+<div class="proto-project-meta"><span>5 集</span><span>12 个创作</span><span>5 天前</span></div>
+</div>
+<div class="proto-project-card">
+<span class="proto-project-status proto-status-completed">已完成</span>
+<div class="proto-project-cover">🎭</div>
+<div class="proto-project-title">凡人修仙传</div>
+<div class="proto-project-author">忘语</div>
+<div class="proto-project-meta"><span>2 集</span><span>8 个创作</span><span>1 周前</span></div>
+</div>
+<div class="proto-project-card">
+<span class="proto-project-status proto-status-processing">进行中</span>
+<div class="proto-project-cover">📖</div>
+<div class="proto-project-title">仙逆</div>
+<div class="proto-project-author">耳根</div>
+<div class="proto-project-meta"><span>1 集</span><span>3 个创作</span><span>2 周前</span></div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>关键交互：</strong>
+<ul>
+<li>顶部 toolbar：搜索框 + 3 个筛选 Tab（全部/进行中/已完成）+ 新建按钮</li>
+<li>卡片右上角状态徽章（橙=进行中，绿=已完成）</li>
+<li>封面 emoji 渐变背景（紫→橙，与 Header Logo 一致）</li>
+<li>卡片底部统计：集数 + 创作数 + 更新时间</li>
+<li>点击卡片 → 跳剧集管理</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     剧集管理
+     ============================================================ -->
+<section id="episodes">
+<h2>剧集管理（#view-episodes · 旧版 1353-1362 行）</h2>
+
+<div class="prototype">
+<div class="proto-label">剧集网格 + 创建按钮</div>
+<div class="proto-container" style="padding:24px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px;">
+<div style="display:flex; justify-content:space-between; align-items:center;">
+<div style="display:flex; gap:12px; align-items:center;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:8px; cursor:pointer;">← 返回</button>
+<h3 style="color:var(--text); margin:0;">剧集管理 · 斗破苍穹</h3>
+</div>
+<button style="background:var(--primary); color:white; border:none; padding:8px 20px; border-radius:8px; cursor:pointer;">+ 创建剧集</button>
+</div>
+</div>
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; cursor:pointer; transition:0.2s;">
+<div style="font-size:32px; margin-bottom:8px;">📺</div>
+<div style="color:var(--text); font-size:15px; font-weight:600; margin-bottom:4px;">第 1 集 · 陨落的天才</div>
+<div style="color:var(--text-muted); font-size:12px; margin-bottom:8px;">集数 1 · 3 个创作</div>
+<div style="font-size:12px; color:var(--text-secondary);">萧炎天才陨落，被退婚羞辱，命运从此转折</div>
+</div>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; cursor:pointer;">
+<div style="font-size:32px; margin-bottom:8px;">📺</div>
+<div style="color:var(--text); font-size:15px; font-weight:600; margin-bottom:4px;">第 2 集 · 萧炎的决心</div>
+<div style="color:var(--text-muted); font-size:12px; margin-bottom:8px;">集数 2 · 2 个创作</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ============================================================
+     创作列表
+     ============================================================ -->
+<section id="creations">
+<h2>创作列表（#view-creations · 旧版 1364-1374 行）</h2>
+
+<div class="prototype">
+<div class="proto-label">创作网格 + Step 进度</div>
+<div class="proto-container" style="padding:24px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px;">
+<div style="display:flex; justify-content:space-between; align-items:center;">
+<div style="display:flex; gap:12px; align-items:center;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:8px; cursor:pointer;">← 返回</button>
+<h3 style="color:var(--text); margin:0;">创作列表 · 斗破苍穹</h3>
+</div>
+<button style="background:var(--primary); color:white; border:none; padding:8px 20px; border-radius:8px; cursor:pointer;">+ 新建创作</button>
+</div>
+</div>
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px;">
+<div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+<div style="font-size:18px; font-weight:600; color:var(--text);">🎬 第 1 集</div>
+<span style="background:rgba(16,185,129,0.2); color:var(--success); padding:2px 8px; border-radius:10px; font-size:11px;">已完成</span>
+</div>
+<div style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">热血安利 · 目标 70s · v3 已合成</div>
+<div style="display:flex; gap:4px; margin-bottom:8px;">
+<span style="background:var(--primary-dim); color:white; padding:3px 8px; border-radius:4px; font-size:10px;">Step 1 ✓</span>
+<span style="background:var(--primary-dim); color:white; padding:3px 8px; border-radius:4px; font-size:10px;">Step 2 ✓</span>
+<span style="background:var(--primary-dim); color:white; padding:3px 8px; border-radius:4px; font-size:10px;">Step 3 ✓</span>
+</div>
+<div style="font-size:11px; color:var(--text-muted); margin-top:8px;">2026-09-08 14:42</div>
+</div>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px;">
+<div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+<div style="font-size:18px; font-weight:600; color:var(--text);">🎬 第 1 集</div>
+<span style="background:rgba(245,158,11,0.2); color:var(--warning); padding:2px 8px; border-radius:10px; font-size:11px;">Step 2</span>
+</div>
+<div style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">剧情向 · 目标 90s</div>
+<div style="display:flex; gap:4px; margin-bottom:8px;">
+<span style="background:var(--primary-dim); color:white; padding:3px 8px; border-radius:4px; font-size:10px;">Step 1 ✓</span>
+<span style="background:var(--primary); color:white; padding:3px 8px; border-radius:4px; font-size:10px;">Step 2 ●</span>
+<span style="background:var(--surface-3); color:var(--text-muted); padding:3px 8px; border-radius:4px; font-size:10px;">Step 3</span>
+</div>
+<div style="font-size:11px; color:var(--text-muted); margin-top:8px;">2026-09-08 14:15</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ============================================================
+     步骤导航条
+     ============================================================ -->
+<section id="step-nav">
+<h2>步骤导航条（#step-nav · 旧版 renderStepNav 2622-2638 行）</h2>
+
+<div class="feature-desc">
+<strong>关键设计：</strong> <strong>TOTAL_STEPS = 3</strong>。导航条用 step-tab 组件，每步可显示序号 / 状态（已完成 ✓ / 当前 active / 未解锁 locked）。已完成的步骤可点击跳回修改。
+</div>
+
+<div class="prototype">
+<div class="proto-label">3 步骤导航条（Step 1 ✓, Step 2 ●, Step 3 🔒）</div>
+<div class="proto-container" style="padding:24px;">
+<style>
+.proto-step-nav { display: flex; align-items: center; gap: 4px; margin-bottom: 24px; overflow-x: auto; padding: 4px 0; }
+.proto-step-tab { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: 0.2s; white-space: nowrap; flex-shrink: 0; font-size: 13px; }
+.proto-step-tab:hover:not(.locked) { border-color: var(--primary); color: var(--text); }
+.proto-step-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.proto-step-tab.completed { border-color: var(--success); color: var(--success); }
+.proto-step-tab.locked { opacity: 0.4; cursor: not-allowed; }
+.proto-step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--surface-3); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+.proto-step-tab.active .proto-step-num { background: rgba(255,255,255,0.2); }
+.proto-step-tab.completed .proto-step-num { background: var(--success); color: #fff; }
+.proto-step-arrow { color: var(--text-muted); flex-shrink: 0; }
+</style>
+<div class="proto-step-nav">
+<div class="proto-step-tab completed">
+<span class="proto-step-num">✓</span>
+<span>1 创作信息</span>
+</div>
+<span class="proto-step-arrow">→</span>
+<div class="proto-step-tab active">
+<span class="proto-step-num">2</span>
+<span>口播长文</span>
+</div>
+<span class="proto-step-arrow">→</span>
+<div class="proto-step-tab locked">
+<span class="proto-step-num">3</span>
+<span>音视频素材</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>状态机（maxUnlockedStep 逻辑）：</strong>
+<ul>
+<li><code>locked</code>：序号 &gt; <code>maxUnlockedStep</code>，灰显，不可点击</li>
+<li><code>completed</code>：序号 &lt; <code>currentStep</code> 或 已解锁且有结果，绿色 ✓，可点击回跳</li>
+<li><code>active</code>：序号 === <code>currentStep</code>，紫色高亮，当前步骤</li>
+<li>点击已完成 → 可来回切换修改</li>
+<li>完成最后一步 → 跳完成页（v3 设计）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     Step 1 创作信息
+     ============================================================ -->
+<section id="step1">
+<h2>Step 1 创作信息（renderStep1 · 旧版 2671-2831 行）</h2>
+
+<div class="feature-desc">
+<strong>上中下布局（v3 重构·完全沿用旧版）：</strong>
+<ul>
+<li><strong>上</strong>：基本信息三列（标题 / 风格 / 时长）+ 作者署名 / 备注</li>
+<li><strong>中</strong>：关联剧集 chip + 4 个快捷选项 + 关键词/参考标题/价值点三个 chip 输入</li>
+<li><strong>下</strong>：生成按钮 + 大纲结果区（核心关键词、核心词、参考标题、主要任务、核心价值、关键点）</li>
+</ul>
+</div>
+
+<div class="prototype">
+<div class="proto-label">Step 1 完整面板（上中下布局）</div>
+<div class="proto-container" style="padding:24px;">
+<style>
+.proto-step1 h2 { color: var(--text); font-size: 20px; margin-bottom: 4px; }
+.proto-step1 .panel-desc { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+.proto-step1 .form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.proto-step1 .form-group { flex: 1; min-width: 160px; }
+.proto-step1 label { display: block; color: var(--text); font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.proto-step1 .required { color: var(--error); }
+.proto-step1 input, .proto-step1 select, .proto-step1 textarea { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+.proto-step1 .chip-container { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; padding: 4px; background: var(--surface-2); border-radius: 6px; }
+.proto-step1 .chip { padding: 4px 12px; background: var(--primary-dim); color: white; border-radius: 14px; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.proto-step1 .chip-remove { cursor: pointer; opacity: 0.7; }
+.proto-step1 .chip-input { flex: 1; min-width: 120px; background: transparent; border: none; color: var(--text); padding: 4px 8px; font-size: 13px; min-width: 100px; outline: none; }
+.proto-step1 .quick-option { padding: 4px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; font-size: 12px; cursor: pointer; color: var(--text-secondary); display: inline-block; margin: 2px; }
+.proto-step1 .quick-option.selected { background: var(--primary); border-color: var(--primary); color: white; }
+.proto-step1 .gen-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; padding: 12px 16px; background: var(--surface-2); border-radius: 8px; }
+.proto-step1 .gen-success { color: var(--success); font-size: 13px; }
+.proto-step1 .btn-primary { background: var(--primary); color: white; border: none; padding: 8px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.proto-step1 .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); padding: 8px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+</style>
+<div class="proto-step1">
+<h2>📝 Step 1：创作信息</h2>
+<p class="panel-desc">填写基本信息，关联剧集与快捷选项，生成关键词与大纲</p>
+
+<!-- 上：基本信息 -->
+<div class="form-row">
+<div class="form-group" style="flex:2; min-width:200px;">
+<label>创作标题 <span class="required">*</span></label>
+<input value="斗破苍穹_推广">
+</div>
+<div class="form-group">
+<label>推广风格</label>
+<select><option>热血安利</option><option>客观测评</option><option>悬念种草</option><option>剧情向</option></select>
+</div>
+<div class="form-group">
+<label>目标时长(秒)</label>
+<input type="number" value="70" min="20" max="300">
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label>作者署名</label>
+<input value="天蚕土豆">
+</div>
+<div class="form-group" style="flex:2;">
+<label>备注</label>
+<input placeholder="备注信息（可选）">
+</div>
+</div>
+
+<!-- 中：关联剧集 + 快捷选项 -->
+<div class="form-row">
+<div class="form-group" style="flex:2;">
+<label>关联剧集</label>
+<div class="chip-container">
+<span class="chip">第 1 集 ×</span>
+<span class="chip">第 2 集 ×</span>
+<input class="chip-input" placeholder="点击选择剧集...">
+</div>
+</div>
+<div class="form-group">
+<label>快捷选项</label>
+<div>
+<span class="quick-option selected">介绍剧集</span>
+<span class="quick-option">随机故事</span>
+<span class="quick-option">人物介绍</span>
+<span class="quick-option selected">视角介绍</span>
+</div>
+</div>
+</div>
+
+<!-- 中：3 个 chip 输入 -->
+<div class="form-row">
+<div class="form-group">
+<label>关键词 <span style="color:var(--text-muted); font-size:11px;">（回车添加）</span></label>
+<div class="chip-container">
+<span class="chip">斗气 ×</span>
+<span class="chip">修炼 ×</span>
+<input class="chip-input" placeholder="输入关键词后回车">
+</div>
+</div>
+<div class="form-group">
+<label>参考标题/钩子</label>
+<div class="chip-container">
+<span class="chip">斗破苍穹：萧炎的逆袭 ×</span>
+<input class="chip-input" placeholder="输入参考标题后回车">
+</div>
+</div>
+<div class="form-group">
+<label>核心卖点/价值点</label>
+<div class="chip-container">
+<span class="chip">热血逆袭 ×</span>
+<input class="chip-input" placeholder="输入价值点后回车">
+</div>
+</div>
+</div>
+
+<!-- 下：生成按钮 -->
+<div class="gen-actions">
+<span class="gen-success">✅ 已完成</span>
+<button class="btn-secondary">⟲ 重新生成</button>
+<button class="btn-primary">保存并下一步 ▶</button>
+</div>
+
+<!-- 大纲结果区 -->
+<div style="margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:8px; background:var(--bg);">
+<div style="font-size:13px; font-weight:600; color:var(--primary); margin-bottom:12px;">📋 大纲生成结果</div>
+<div class="form-group">
+<label>核心关键词</label>
+<div class="chip-container">
+<span class="chip">斗气大陆 ×</span>
+<span class="chip">修炼体系 ×</span>
+<span class="chip">退婚 ×</span>
+</div>
+</div>
+<div class="form-group">
+<label>参考标题</label>
+<div style="padding:8px 12px; background:var(--surface-2); border-radius:6px; margin-bottom:4px;">
+<div style="font-weight:600; color:var(--text); font-size:13px;">1. 斗破苍穹：少年萧炎的逆袭之路</div>
+<div style="color:var(--text-secondary); font-size:11px; padding-left:8px;">从天才陨落到逆袭崛起</div>
+</div>
+<div style="padding:8px 12px; background:var(--surface-2); border-radius:6px; margin-bottom:4px;">
+<div style="font-weight:600; color:var(--text); font-size:13px;">2. 3 分钟看懂斗气修炼</div>
+</div>
+</div>
+<div class="form-group">
+<label>主要任务</label>
+<div style="padding:8px; background:var(--surface-2); border-radius:4px; font-size:13px; color:var(--text-secondary);">让用户快速理解斗破苍穹的核心设定，激发追剧欲望</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>关键交互细节（旧版 2717-2756 行）：</strong>
+<ul>
+<li>4 个快捷选项：介绍剧集 / 随机故事 / 人物介绍 / 视角介绍（点击切换 selected 类）</li>
+<li>3 个 chip 输入框：关键词（max 20）/ 参考标题（max 10）/ 价值点（max 10），回车添加</li>
+<li>关联剧集：紫色 chip 样式（背景 var(--primary-dim)），点击 ✕ 移除</li>
+<li>生成按钮 3 种状态：未生成 / 生成中 / 已完成（已完成时同时显示"重新生成"）</li>
+<li>大纲结果区：核心关键词 / 核心词 / 参考标题（多行）/ 主要任务 / 核心价值（多行）/ 关键点（多行）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     Step 2 口播长文
+     ============================================================ -->
+<section id="step2">
+<h2>Step 2 口播长文（renderStep2 · 旧版 3083-3248 行）</h2>
+
+<div class="feature-desc">
+<strong>两栏布局：</strong>
+<ul>
+<li><strong>左 40%</strong>：Step1 大纲结果（关键词、参考标题、主要任务、核心价值、关键点）</li>
+<li><strong>右 60%</strong>：口播长文编辑区（标题 + 正文 + 字数统计）+ 录音功能（多段录制/试听/删除）</li>
+</ul>
+<strong>关键差异：</strong> 旧版有 <strong>录音功能</strong>（用户可录制自己的口播，多段录音），v4.0 需要保留此功能。
+</div>
+
+<div class="prototype">
+<div class="proto-label">Step 2 口播长文（两栏 + 录音区）</div>
+<div class="proto-container" style="padding:24px;">
+<style>
+.proto-step2 { color: var(--text); font-size: 13px; }
+.proto-step2 h2 { color: var(--text); font-size: 20px; margin-bottom: 4px; }
+.proto-step2 .panel-desc { color: var(--text-secondary); font-size: 12px; margin-bottom: 16px; }
+.proto-step2 .two-col { display: flex; gap: 12px; }
+.proto-step2 .left-col { flex: 0 0 40%; min-width: 300px; }
+.proto-step2 .right-col { flex: 1; min-width: 300px; }
+.proto-step2 .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.proto-step2 .section-card-title { font-size: 13px; font-weight: 600; color: var(--primary); margin-bottom: 12px; }
+.proto-step2 .chip-container { display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px; }
+.proto-step2 .chip { padding: 3px 10px; background: var(--primary-dim); color: white; border-radius: 12px; font-size: 11px; }
+.proto-step2 .editor-textarea { width: 100%; min-height: 240px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 8px; font-family: inherit; line-height: 1.7; resize: vertical; }
+.proto-step2 .word-count { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+.proto-step2 .lock-btn { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+</style>
+<div class="proto-step2">
+<h2>✍️ Step 2：口播长文</h2>
+<p class="panel-desc">自动根据 Step1 大纲生成长文，可停止/重试，确认后保存合成音频</p>
+
+<!-- 生成状态栏 -->
+<div class="section-card" style="padding:8px 12px;">
+<div style="display:flex; gap:8px; align-items:center;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:6px; font-size:12px;">⟲ 重试</button>
+<span style="color:var(--success); font-size:12px;">✅ 已完成</span>
+</div>
+</div>
+
+<div class="two-col">
+<!-- 左：Step1 大纲 -->
+<div class="left-col">
+<div class="section-card">
+<div class="section-card-title">📌 Step1 大纲结果</div>
+<div style="margin-bottom:8px;">
+<div style="color:var(--text-muted); font-size:11px; margin-bottom:4px;">核心关键词</div>
+<div class="chip-container">
+<span class="chip">斗气大陆</span>
+<span class="chip">修炼体系</span>
+<span class="chip">退婚</span>
+</div>
+</div>
+<div style="margin-bottom:8px;">
+<div style="color:var(--text-muted); font-size:11px; margin-bottom:4px;">参考标题（选择一条作为长文标题来源）</div>
+<div style="padding:6px 0; cursor:pointer;">
+<input type="radio" name="s2-ref-title" checked>
+<span style="font-weight:600; color:var(--text); font-size:13px; margin-left:4px;">斗破苍穹：少年萧炎的逆袭之路</span>
+<div style="padding-left:20px; color:var(--text-secondary); font-size:11px;">从天才陨落到逆袭崛起</div>
+</div>
+<div style="padding:6px 0; cursor:pointer;">
+<input type="radio" name="s2-ref-title">
+<span style="font-weight:600; color:var(--text); font-size:13px; margin-left:4px;">3 分钟看懂斗气修炼</span>
+</div>
+</div>
+<div style="margin-bottom:8px;">
+<div style="color:var(--text-muted); font-size:11px; margin-bottom:4px;">主要任务</div>
+<div style="padding:6px 8px; background:var(--surface-2); border-radius:4px; font-size:12px;">让用户快速理解斗破苍穹核心设定，激发追剧欲望</div>
+</div>
+</div>
+</div>
+
+<!-- 右：长文编辑 + 录音 -->
+<div class="right-col">
+<div class="section-card">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+<div class="section-card-title" style="margin:0;">📝 口播长文 <span style="color:var(--text-muted); font-size:11px;">（标题：斗破苍穹：少年萧炎的逆袭之路）</span></div>
+<button class="lock-btn">📝 锁定</button>
+</div>
+<textarea class="editor-textarea">"你是否想过，曾经的天才如何跌落神坛？
+
+今天我们来聊一聊《斗破苍穹》这部神作。在斗气大陆上，修炼的等级分为斗者、斗师、斗灵...
+
+关注我，下期更精彩！"</textarea>
+<div class="word-count">187 字</div>
+</div>
+
+<!-- 录音区 -->
+<div class="section-card">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+<div class="section-card-title" style="margin:0;">🎤 录音 <span style="color:var(--text-muted); font-size:11px;">（支持多段录制）</span></div>
+<button style="background:var(--accent); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;">● 开始录制</button>
+</div>
+<table style="font-size:12px;">
+<thead><tr style="background:var(--surface-2);">
+<th style="padding:6px;">#</th>
+<th style="padding:6px;">时长</th>
+<th style="padding:6px;">波形</th>
+<th style="padding:6px;">操作</th>
+</tr></thead>
+<tbody>
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:6px;">1</td>
+<td style="padding:6px;">00:24</td>
+<td style="padding:6px;">▁▂▅▇█▇▅▂▁</td>
+<td style="padding:6px;">[▶试听] [✕删除]</td>
+</tr>
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:6px;">2</td>
+<td style="padding:6px;">00:18</td>
+<td style="padding:6px;">▁▃▆▇█▇▆▃▁</td>
+<td style="padding:6px;">[▶试听] [✕删除]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>关键细节：</strong>
+<ul>
+<li><strong>左栏 Step1 大纲</strong>：关键词 chip / 参考标题（radio 单选，作为长文标题来源）/ 主要任务 / 核心价值 / 关键点</li>
+<li><strong>右栏口播长文</strong>：textarea 高度 ≥ 240px / 字数统计 / "锁定"按钮（自动保存 vs 自由编辑）</li>
+<li><strong>录音区</strong>：支持多段录制 / 显示波形 / 试听 / 删除（用 MediaRecorder API）</li>
+<li><strong>底部按钮</strong>：⟲ 重试 / ✅ 已完成 / 保存并下一步（右下"保存"按钮在面板 footer）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     Step 3 音视频素材
+     ============================================================ -->
+<section id="step3">
+<h2>Step 3 音视频素材（renderStep3 · 旧版 3407-3541 行）</h2>
+
+<div class="feature-desc">
+<strong>两栏布局：</strong>
+<ul>
+<li><strong>左 45%</strong>：音频列表（多选）+ 同步播放控件（视频播放器 + 音频播放器 + 3 种播放模式按钮）</li>
+<li><strong>右 55%</strong>：视频素材列表（多选）+ <strong>13 列表格</strong>（v2 已详细画）</li>
+</ul>
+<strong>3 种播放模式（关键创新）：</strong> 同步播放（音频+视频同步）/ 仅音频 / 仅视频
+</div>
+
+<div class="prototype">
+<div class="proto-label">Step 3 · 左：音频列表 + 同步播放控件</div>
+<div class="proto-container" style="padding:24px;">
+<style>
+.proto-step3 { color: var(--text); font-size: 13px; }
+.proto-step3 .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.proto-step3 .section-card-title { font-size: 13px; font-weight: 600; color: var(--primary); margin-bottom: 12px; }
+.proto-step3 .audio-item { padding: 8px 12px; background: var(--surface-2); border-radius: 6px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.proto-step3 .audio-item.system { border-left: 3px solid var(--accent); }
+.proto-step3 .audio-item.custom { border-left: 3px solid var(--info); }
+.proto-step3 .audio-name { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proto-step3 .audio-duration { font-size: 11px; color: var(--text-muted); }
+.proto-step3 .play-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0; }
+.proto-step3 .play-btn { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
+.proto-step3 .video-player { width: 100%; max-height: 240px; background: #000; border-radius: 4px; }
+</style>
+<div class="proto-step3">
+<div class="section-card">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+<div class="section-card-title" style="margin:0;">🔊 音频列表 (5)</div>
+<div style="display:flex; gap:4px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:4px 10px; border-radius:4px; font-size:11px;">全选</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:4px 10px; border-radius:4px; font-size:11px;">全不选</button>
+</div>
+</div>
+<div style="max-height:240px; overflow-y:auto;">
+<div class="audio-item system"><input type="checkbox" checked><span style="font-size:14px;">🎵</span><span class="audio-name">口播长文_合成.mp3</span><span class="audio-duration">00:48</span></div>
+<div class="audio-item system"><input type="checkbox" checked><span style="font-size:14px;">🎵</span><span class="audio-name">口播长文_v2.mp3</span><span class="audio-duration">00:50</span></div>
+<div class="audio-item custom"><input type="checkbox"><span style="font-size:14px;">🎤</span><span class="audio-name">录音-001.wav</span><span class="audio-duration">00:24</span></div>
+<div class="audio-item custom"><input type="checkbox"><span style="font-size:14px;">🎤</span><span class="audio-name">录音-002.wav</span><span class="audio-duration">00:18</span></div>
+<div class="audio-item custom"><input type="checkbox"><span style="font-size:14px;">🎤</span><span class="audio-name">录音-003.wav</span><span class="audio-duration">00:36</span></div>
+</div>
+</div>
+
+<!-- 同步播放控件 -->
+<div class="section-card">
+<div class="play-controls">
+<button class="play-btn">同步</button>
+<button class="play-btn">音频</button>
+<button class="play-btn">视频</button>
+</div>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">选择音频和视频后可同步播放</div>
+<video class="video-player" controls></video>
+<audio style="width:100%; height:36px; margin-top:8px;" controls></audio>
+</div>
+</div>
+</div>
+</div>
+
+<div class="prototype">
+<div class="proto-label">Step 3 · 右：视频列表 + 13 列标记表（v2 完整版）</div>
+<div class="proto-container" style="padding:24px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+<div style="font-size:13px; font-weight:600; color:var(--primary);">📹 视频素材列表 (12)</div>
+<div style="display:flex; gap:4px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:4px 10px; border-radius:4px; font-size:11px;">全选</button>
+<button style="background:var(--primary); color:white; border:none; padding:4px 10px; border-radius:4px; font-size:11px;">+ 新增</button>
+</div>
+</div>
+</div>
+
+<!-- 复用 v2 M9 的 13 列表格 -->
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; color:var(--text-muted); font-size:12px;">
+【此处复用 v2 M9 完整 13 列表格原型】
+<br>见 <a href="漫剧剪辑师-v2.html#module-step5-marks">v2 M9 标记列表</a>
+<br>共 8 个标记片段 · · 来源: 4 个视频 · · 平均时长 4.7s
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>Step 3 关键交互：</strong>
+<ul>
+<li>音频列表：<strong>系统音频在前</strong>（TTS 合成）/ <strong>自定义在后</strong>（用户录音），左右边色不同</li>
+<li>3 种播放模式：<strong>同步</strong>（音频+视频同步切换 · 核心创新）/ <strong>音频</strong>（仅听）/ <strong>视频</strong>（仅看）</li>
+<li>视频列表：checkbox 多选 · "全选/全不选" · "+ 新增"按钮</li>
+<li>13 列标记表（v2 已详细画）：每行可编辑 start/end / ±1 微调 / 静音 / 单段预览</li>
+<li>合成按钮在底部 footer（与旧版一致）</li>
+</ul>
+</div>
+</section>
+
+<!-- ============================================================
+     完成页（多次合成）
+     ============================================================ -->
+<section id="complete">
+<h2>🎬 完成页（多次合成 · v3 增强）</h2>
+
+<div class="note">
+<strong>v3 增强</strong>：旧版只有单次完成页（renderCompletePage 第 5293-5378 行）。v3 新增多次合成列表（用户原话："多次的合成展示在合成列表中，都可以回看与下载，最后一部可以直接点击，适合编辑"）。
+</div>
+
+<div class="prototype">
+<div class="proto-label">完成页 · 顶部庆祝 + 当前合成 + 历史合成列表 + 操作</div>
+<div class="proto-container" style="padding:24px;">
+<style>
+.proto-complete-hero { background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 12px; padding: 32px; text-align: center; margin-bottom: 20px; color: white; }
+.proto-complete-hero h3 { font-size: 22px; margin: 12px 0 8px; }
+.proto-complete-hero p { margin: 8px 0 0; opacity: 0.95; }
+.proto-current-comp { background: var(--surface); border: 2px solid var(--success); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.proto-current-comp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.proto-newest-badge { background: var(--success); color: white; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.proto-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 12px 0; }
+.proto-stat-item { background: var(--surface-2); padding: 12px; border-radius: 8px; }
+.proto-stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.proto-stat-value { font-size: 16px; font-weight: 600; color: var(--text); }
+.proto-history-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+</style>
+<div class="proto-complete-hero">
+<div style="font-size:48px;">🎉</div>
+<h3>推广视频已生成！</h3>
+<p>《斗破苍穹》· 第 1 集 · 已成功合成 v3</p>
+<div style="margin-top:12px; font-size:12px; opacity:0.85;">2026-09-08 14:42 · 用时 28 秒 · 12.3 MB</div>
+</div>
+
+<!-- 当前最新 -->
+<div class="proto-current-comp">
+<div class="proto-current-comp-header">
+<div>
+<span class="proto-newest-badge">🆕 最新</span>
+<span style="margin-left:8px; color:var(--text); font-weight:600;">合成 v3 · 1920×1080 · 烧字幕</span>
+</div>
+<div style="display:flex; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:4px; font-size:12px;">📋 复制配置</button>
+<button style="background:var(--accent); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px;">🔀 继续编辑 →</button>
+</div>
+</div>
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:center;">
+<div style="background:#000; border-radius:8px; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.4); font-size:14px;">▶ 视频预览</div>
+<div>
+<div class="proto-stat-grid">
+<div class="proto-stat-item"><div class="proto-stat-label">分辨率</div><div class="proto-stat-value">1920×1080</div></div>
+<div class="proto-stat-item"><div class="proto-stat-label">大小</div><div class="proto-stat-value">12.3 MB</div></div>
+<div class="proto-stat-item"><div class="proto-stat-label">时长</div><div class="proto-stat-value">00:50</div></div>
+<div class="proto-stat-item"><div class="proto-stat-label">字幕</div><div class="proto-stat-value" style="color:var(--success);">✓ 已烧录</div></div>
+</div>
+<div style="margin-top:12px; display:flex; gap:8px;">
+<button style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">⬇ 下载 mp4</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px 20px; border-radius:6px; cursor:pointer;">📥 保存到素材目录</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- 历史合成 -->
+<div class="proto-history-table">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+<div style="font-size:13px; font-weight:600; color:var(--primary);">📚 历史合成（2）</div>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:4px 10px; border-radius:4px; font-size:11px;">🔄 对比</button>
+</div>
+<table style="font-size:12px;">
+<thead><tr style="background:var(--surface-2); color:var(--text-secondary);">
+<th style="padding:6px; text-align:left;">版本</th>
+<th style="padding:6px; text-align:left;">时间</th>
+<th style="padding:6px;">分辨率</th>
+<th style="padding:6px;">字幕</th>
+<th style="padding:6px;">大小</th>
+<th style="padding:6px;">操作</th>
+</tr></thead>
+<tbody>
+<tr style="border-top:1px solid var(--border);">
+<td style="padding:6px;"><span class="proto-newest-badge">v3 🆕</span></td>
+<td style="padding:6px; color:var(--text-muted);">14:42</td>
+<td style="padding:6px; text-align:center;">1920×1080</td>
+<td style="padding:6px; text-align:center; color:var(--success);">✓</td>
+<td style="padding:6px; text-align:center;">12.3 MB</td>
+<td style="padding:6px; text-align:center;">[<a style="color:var(--primary); cursor:pointer;">下载</a>] [<a style="color:var(--primary); cursor:pointer;">预览</a>] [<a style="color:var(--primary); cursor:pointer;">编辑</a>]</td>
+</tr>
+<tr style="border-top:1px solid var(--border); opacity:0.8;">
+<td style="padding:6px;"><span style="background:var(--surface-3); color:var(--text-secondary); padding:2px 8px; border-radius:10px; font-size:10px;">v2</span></td>
+<td style="padding:6px; color:var(--text-muted);">14:28</td>
+<td style="padding:6px; text-align:center;">1080×1920</td>
+<td style="padding:6px; text-align:center; color:var(--text-muted);">—</td>
+<td style="padding:6px; text-align:center;">8.7 MB</td>
+<td style="padding:6px; text-align:center;">[<a style="color:var(--primary); cursor:pointer;">下载</a>] [<a style="color:var(--primary); cursor:pointer;">预览</a>]</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<!-- 操作按钮组 -->
+<div style="display:flex; justify-content:space-between; gap:8px; margin-top:16px;">
+<div style="display:flex; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px 16px; border-radius:8px; cursor:pointer;">← 返回 Step 2 修改</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px 16px; border-radius:8px; cursor:pointer;">📂 返回项目列表</button>
+</div>
+<button style="background:var(--accent); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:600;">🔄 重新合成（生成新版本）</button>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>4 个统计指标（stat-grid）：</strong> 分辨率 / 大小 / 时长 / 字幕
+<strong>3 种"继续编辑"入口：</strong>
+<ul>
+<li>点"📋 复制配置" → 用当前参数新建一次合成（适合微调）</li>
+<li>点"🔀 继续编辑 →" → 跳 Step 1/2 改文案/标记 → 改完重新合成</li>
+<li>直接点列表的"编辑"列 → 跳对应 Step</li>
+</ul>
+<strong>"重新合成"按钮逻辑：</strong>
+<ul>
+<li>基于当前最新的 step_results（不是某个旧版本）</li>
+<li>用新参数合成 → 生成 v4（按版本号递增）</li>
+<li>旧版本保留在历史中，不会被覆盖</li>
+</ul>
+<strong>下载方式（多选项）：</strong> 浏览器下载 / 保存到素材目录 / 保存到指定目录（v3 沿用旧版 download 弹窗）
+</div>
+</section>
+
+<!-- ============================================================
+     弹窗：配置
+     ============================================================ -->
+<section id="modal-config">
+<h2>⚙ 全局配置弹窗（#modal-config · 旧版 1385-1465 行）</h2>
+
+<div class="feature-desc">
+<strong>关键设计：</strong> 平台选择（卡片样式 3 选 1） + 模型下拉 + API Key + Base URL + TTS 引擎/语音 + 搜索引擎 + 视频片段默认时长 + 视频默认分辨率 + 工作目录。<strong>v4 改用 MiniMax M3</strong>，需在平台选择中加 "MiniMax" 选项。
+</div>
+
+<div class="prototype">
+<div class="proto-label">全局配置弹窗</div>
+<div class="proto-container" style="padding:24px; min-height:600px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:640px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<h3 style="color:var(--text); margin:0;">全局配置</h3>
+<button style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">×</button>
+</div>
+
+<div style="margin-bottom:16px;">
+<div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:8px;">AI 平台</div>
+<div style="display:flex; gap:12px;">
+<div style="background:var(--surface-2); border:2px solid var(--primary); border-radius:8px; padding:12px; flex:1; cursor:pointer; text-align:center;">
+<span style="display:inline-block; padding:2px 8px; background:rgba(16,185,129,0.2); color:var(--success); border-radius:10px; font-size:10px; margin-bottom:6px;">直连</span>
+<div style="font-size:20px;">⚡</div>
+<div style="font-weight:600; color:var(--text); font-size:13px;">阶跃星辰</div>
+<div style="color:var(--text-secondary); font-size:11px;">MiniMax M3</div>
+</div>
+<div style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px; flex:1; cursor:pointer; text-align:center;">
+<span style="display:inline-block; padding:2px 8px; background:rgba(59,130,246,0.2); color:var(--info); border-radius:10px; font-size:10px; margin-bottom:6px;">直连</span>
+<div style="font-size:20px;">🔮</div>
+<div style="font-weight:600; color:var(--text); font-size:13px;">DeepSeek</div>
+<div style="color:var(--text-secondary); font-size:11px;">deepseek-chat</div>
+</div>
+</div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">模型</div><select style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><option>MiniMax-M3</option></select></div>
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">API Key</div><div style="display:flex; gap:8px;"><input type="password" placeholder="输入 API Key" value="sk-cp-***REDACTED***" style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px;">🔌 测试连接</button></div></div>
+</div>
+
+<div style="margin-bottom:16px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">Base URL</div><input value="https://api.minimax.cn/v1" style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"></div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">TTS 引擎</div><select style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><option>edge-tts</option><option>pyttsx3 (SAPI)</option></select></div>
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">TTS 语音</div><select style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><option>zh-CN-XiaoxiaoNeural</option><option>zh-CN-YunxiNeural</option><option>zh-CN-YunyangNeural</option></select></div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">搜索引擎</div><select style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><option>Bing</option><option>DuckDuckGo</option></select></div>
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">搜索 API Key</div><input type="password" placeholder="Bing Search API key"></div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">视频片段默认时长(秒)</div><input type="number" value="4" min="2" max="20"></div>
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">视频默认分辨率</div><select style="width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><option>1080x1920</option><option>720x1280</option></select></div>
+</div>
+
+<div style="margin-bottom:16px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">工作目录</div><input value="./workspace"></div>
+
+<div style="display:flex; justify-content:flex-end; gap:8px; padding-top:12px; border-top:1px solid var(--border);">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:6px;">取消</button>
+<button style="background:var(--primary); color:white; border:none; padding:8px 16px; border-radius:6px;">保存配置</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>v4 平台选择：</strong> 旧版有 DeepSeek / 火山 ARK / 阶跃星辰 3 个。v4.0 改为 MiniMax M3（OpenAI 兼容），需在 <code>ConfigTest</code> schema 加 MiniMax provider，并更新 <code>_platformPresets</code>。
+</div>
+</section>
+
+<!-- ============================================================
+     弹窗：新建项目
+     ============================================================ -->
+<section id="modal-new-project">
+<h2>+新建项目弹窗（#modal-new-project · 旧版 1468-1505 行）</h2>
+
+<div class="prototype">
+<div class="proto-label">新建项目</div>
+<div class="proto-container" style="padding:24px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:480px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<h3 style="color:var(--text); margin:0;">新建项目</h3>
+<button style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">×</button>
+</div>
+<div style="margin-bottom:12px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">漫剧标题 <span style="color:var(--error);">*</span></div><input placeholder="例如：斗罗大陆" maxlength="100"></div>
+<div style="margin-bottom:12px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">漫剧作者 <span style="color:var(--error);">*</span></div><input placeholder="原作者/原版"></div>
+<div style="margin-bottom:12px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">漫剧简介 <span style="color:var(--error);">*</span></div><textarea placeholder="10~2000字简介" maxlength="2000" minlength="10"></textarea></div>
+<div style="margin-bottom:12px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">视频素材目录 <span style="color:var(--error);">*</span></div><div style="display:flex; gap:8px;"><input placeholder="D:\漫剧素材\某某漫剧\videos" style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:6px;">浏览</button></div></div>
+<div style="margin-bottom:16px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">文本素材目录（可选）</div><div style="display:flex; gap:8px;"><input placeholder="留空则与视频目录相同" style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px;"><button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:6px;">浏览</button></div></div>
+<div style="display:flex; justify-content:flex-end; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:6px;">取消</button>
+<button style="background:var(--primary); color:white; border:none; padding:8px 16px; border-radius:6px;">创建</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ============================================================
+     弹窗：编辑项目
+     ============================================================ -->
+<section id="modal-edit-project">
+<h2>编辑项目弹窗（#modal-edit-project · 旧版 1508-1545 行）</h2>
+<p>结构与新建项目一致，字段完全相同（复用 ProjectCreateRequest schema），只改 title。</p>
+</section>
+
+<!-- ============================================================
+     弹窗：创建剧集
+     ============================================================ -->
+<section id="modal-new-episode">
+<h2>+创建剧集弹窗（#modal-new-episode · 旧版 1548-1604 行）</h2>
+
+<div class="prototype">
+<div class="proto-label">创建剧集（含文件选择器）</div>
+<div class="proto-container" style="padding:24px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:680px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<h3 style="color:var(--text); margin:0;">创建剧集</h3>
+<button style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">×</button>
+</div>
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-bottom:12px;">
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">剧集名称 <span style="color:var(--error);">*</span></div><input placeholder="例如：第一章"></div>
+<div><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">集数 <span style="color:var(--error);">*</span></div><input type="number" value="1" min="1"></div>
+</div>
+<div style="margin-bottom:16px;"><div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:6px;">描述</div><textarea placeholder="剧集描述（可选）"></textarea></div>
+<div style="margin-bottom:16px;">
+<div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:8px;">关联文件</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+<div style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px; min-height:160px;">
+<div style="color:var(--primary); font-size:13px; font-weight:600; margin-bottom:8px;">📹 视频文件</div>
+<div style="font-size:12px; padding:6px 10px; background:var(--surface); border-radius:4px; margin-bottom:4px;"><input type="checkbox" checked><span style="margin-left:6px; color:var(--text);">ep001.mp4</span><span style="float:right; color:var(--text-muted);">02:34</span></div>
+<div style="font-size:12px; padding:6px 10px; background:var(--surface); border-radius:4px; margin-bottom:4px;"><input type="checkbox" checked><span style="margin-left:6px; color:var(--text);">ep002.mp4</span><span style="float:right; color:var(--text-muted);">02:51</span></div>
+<div style="font-size:12px; padding:6px 10px; background:var(--surface); border-radius:4px; margin-bottom:4px;"><input type="checkbox"><span style="margin-left:6px; color:var(--text);">ep003.mp4</span><span style="float:right; color:var(--text-muted);">03:02</span></div>
+</div>
+<div style="background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px; min-height:160px;">
+<div style="color:var(--primary); font-size:13px; font-weight:600; margin-bottom:8px;">📄 文本文件</div>
+<div style="font-size:12px; padding:6px 10px; background:var(--surface); border-radius:4px; margin-bottom:4px;"><input type="checkbox" checked><span style="margin-left:6px; color:var(--text);">novel_ch1.txt</span></div>
+<div style="font-size:12px; padding:6px 10px; background:var(--surface); border-radius:4px; margin-bottom:4px;"><input type="checkbox"><span style="margin-left:6px; color:var(--text);">summary.txt</span></div>
+</div>
+</div>
+</div>
+<div style="display:flex; justify-content:flex-end; gap:8px;">
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:8px 16px; border-radius:6px;">取消</button>
+<button style="background:var(--primary); color:white; border:none; padding:8px 16px; border-radius:6px;">创建</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>关键设计：</strong> 弹窗含<strong>文件选择器</strong>，左右两栏（视频文件 + 文本文件），每个文件多选 checkbox。这是旧版 v3.0 独有的功能 — 让用户在创建剧集时直接选择素材，关联到该剧集。
+</div>
+</section>
+
+<!-- ============================================================
+     弹窗：编辑标记（v2 已详画）
+     ============================================================ -->
+<section id="modal-marker-edit">
+<h2>编辑标记弹窗（#modal-marker-edit · 旧版 1659-1704 行）</h2>
+<p>详见 <a href="漫剧剪辑师-v2.html#module-step5-edit">v2 M10 完整原型</a>。本节包含源视频预览 + 3 个数字输入（start/end/duration）+ 3 种调整方式（set/add/sub）+ 跳到开始按钮。</p>
+</section>
+
+<!-- ============================================================
+     弹窗：下载视频
+     ============================================================ -->
+<section id="modal-download">
+<h2>下载视频弹窗（#modal-download · 旧版 1706-1733 行）</h2>
+
+<div class="prototype">
+<div class="proto-label">下载视频（3 种方式）</div>
+<div class="proto-container" style="padding:24px;">
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:480px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<h3 style="color:var(--text); margin:0;">下载视频</h3>
+<button style="background:transparent; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">×</button>
+</div>
+<div style="margin-bottom:12px;">
+<div style="color:var(--text); font-size:13px; font-weight:500; margin-bottom:8px;">下载方式</div>
+<div style="display:flex; flex-direction:column; gap:8px;">
+<button style="background:var(--primary); color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-size:13px;">🌐 浏览器下载（保存到下载文件夹）</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px; border-radius:6px; cursor:pointer; font-size:13px;">📁 保存到指定目录...</button>
+<button style="background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px; border-radius:6px; cursor:pointer; font-size:13px;">📂 保存到素材目录（带时间戳+标题）</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="interaction-desc">
+<strong>下载方式选择：</strong> 浏览器下载（默认）/ 保存到指定目录 / 保存到素材目录（带时间戳，避免覆盖）
+</div>
+</section>
+
+<!-- ============================================================
+     其他：个人中心 / 会员 / 管理后台
+     ============================================================ -->
+<section id="personal">
+<h2>个人中心 · 会员中心 · 管理员后台（v4.0 新增）</h2>
+<p>详见 <a href="漫剧剪辑师-v1.html#module-profile">v1 M12 个人中心</a> · <a href="漫剧剪辑师-v1.html#module-membership">v1 M13 会员中心</a> · <a href="漫剧剪辑师-v1.html#module-admin">v1 M14 管理员后台</a></p>
+<div class="feature-desc">
+<strong>v4.0 新增：</strong> 旧版没有用户体系（直接登录 = admin/admin）。v4.0 完整复刻旧版 UI + 新增 JWT 鉴权、会员体系（Free/Pro/Enterprise）、管理员后台（仅 is_admin=true 可见）。
+</div>
+</section>
+
+<!-- ============================================================
+     变更记录
+     ============================================================ -->
+<section id="changelog">
+<h2>变更记录</h2>
+<table>
+<tr><th>日期</th><th>版本</th><th>变更内容</th></tr>
+<tr><td>2026-09-08</td><td>v4.0</td><td><strong>完整复刻旧版所有重要页面</strong>（按用户原话："完全复刻旧系统的重要页面"）。<br>- <strong>5 个主视图</strong>：登录/项目列表/剧集/创作/步骤导航条<br>- <strong>3 大步骤完整内容</strong>：Step 1（上中下布局 · 旧版第 2671-2831 行）/ Step 2（两栏 · 第 3083-3248 行）/ Step 3（两栏 · 第 3407-3541 行）<br>- <strong>7 个核心弹窗</strong>：配置/新建项目/编辑项目/创建剧集（带文件选择器）/编辑标记/下载视频<br>- <strong>完成页多次合成增强</strong>（v3 设计，叠加在 v4 上）<br>- <strong>完整画出 3 种播放模式</strong>（同步/音频/视频）+ 录音功能（多段录制）<br>- 链接 v1 中未变化模块（M5/M6/M7）<br>- <strong>完整覆盖旧版 237 KB HTML 的所有交互</strong></td></tr>
+<tr><td>2026-09-08</td><td>v3.0</td><td>3 步骤重构 + 完成页多次合成</td></tr>
+<tr><td>2026-09-08</td><td>v2.0</td><td>Step5 13 列表格 + 编辑弹窗 + 同步播放伪代码</td></tr>
+<tr><td>2026-09-08</td><td>v1.0</td><td>初版（14 模块原型）</td></tr>
+</table>
+</section>
+
+</main>
+</body>
+</html>

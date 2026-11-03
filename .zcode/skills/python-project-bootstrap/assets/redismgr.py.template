@@ -1,0 +1,77 @@
+# Copyright (c) 2026 All rights reserved.
+#
+# 本文件根据 MIT 许可证授权。
+#
+# 文件名: knowledgeservice.py
+# 作者: 方舟
+# 描述: 通用知识库 Service 定义
+# 创建日期: 2026-01-10
+
+from redis import Redis
+import redis
+import os
+import asyncio
+from {{ project_name }}.utils.env import REDIS_URL
+
+class RedisManager:
+
+    _REDIS_CLIENT : Redis = redis.from_url(REDIS_URL)
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    async def blpop_async(cls, key: str, timeout: int = 180):
+        # 异步阻塞弹出队列元素，timeout秒超时
+        loop = asyncio.get_event_loop()
+        def blpop_block():
+            result = cls._REDIS_CLIENT.blpop(key, timeout=timeout)
+            if result is None:
+                return None
+            value = result[1]
+            return value.decode('utf-8') if isinstance(value, bytes) else value
+        return await loop.run_in_executor(None, blpop_block)
+
+    @classmethod
+    def hgetall(cls, key: str) -> dict:
+        datas: dict = cls._REDIS_CLIENT.hgetall(key)
+        result = {}
+        for k, v in datas.items():
+            kstr = k.decode('utf-8') if isinstance(k, bytes) else k
+            vstr = v.decode('utf-8') if isinstance(v, bytes) else v
+            result[kstr] = vstr
+        return result
+    
+    @classmethod
+    def hget(cls, key: str, field: str) -> str:
+        value = cls._REDIS_CLIENT.hget(key, field)
+        if value is None:
+            return None
+        return value.decode('utf-8') if isinstance(value, bytes) else value
+    
+    @classmethod
+    def hset(cls, key: str, field: str, value: str) -> None:
+        cls._REDIS_CLIENT.hset(key, field, value)
+
+    @classmethod
+    def appendlist(cls, key: str, value: str) -> None:
+        cls._REDIS_CLIENT.lpush(key, value)
+
+    @classmethod
+    def set(cls, key: str, value, ex: int = None) -> None:
+        cls._REDIS_CLIENT.set(key, value, ex=ex)
+
+    @classmethod
+    def get(cls, key: str):
+        value = cls._REDIS_CLIENT.get(key)
+        if value is None:
+            return None
+        return value.decode('utf-8') if isinstance(value, bytes) else value
+    
+    @classmethod
+    def getlist(cls, key: str, begin: int = 0, end: int = -1) -> list:
+        objs: list = cls._REDIS_CLIENT.lrange(key, begin, end)
+        result = []
+        for obj in objs:
+            result.append(obj.decode('utf-8') if isinstance(obj, bytes) else obj)
+        return result
